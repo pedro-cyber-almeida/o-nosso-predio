@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Despesas — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Despesas</h1>
+
+<p class="nota">
+  Uma despesa registada é uma obrigação, não dinheiro que saiu. A caixa só muda
+  com os pagamentos registados na despesa. O valor em falta é sempre calculado a
+  partir dos pagamentos válidos.
+</p>
+
+<section class="acoes-rapidas" aria-label="Ações rápidas">
+  <a class="botao" href="{{ url_for('despesas.new_expense') }}">Registar despesa</a>
+  <a class="botao secundario" href="{{ url_for('despesas.categories') }}">Categorias</a>
+</section>
+
+{% if tem_despesas %}
+  <div class="cartoes">
+    <div class="cartao ficha">
+      <p class="rotulo">Despesas registadas</p>
+      <p class="montante">{{ total_textos.registadas }}</p>
+      <p class="nota">Obrigação registada, não saída de caixa.</p>
+    </div>
+    <div class="cartao ficha">
+      <p class="rotulo">Efetivamente pago</p>
+      <p class="montante">{{ total_textos.pagas }}</p>
+      <p class="nota">Dinheiro que saiu, em pagamentos válidos.</p>
+    </div>
+    <div class="cartao ficha">
+      <p class="rotulo">Por pagar</p>
+      <p class="montante">{{ total_textos.em_falta }}</p>
+      <p class="nota">
+        {% if totais.vencidas > 0 %}
+          Vencido: <strong class="num erro">{{ total_textos.vencidas }}</strong>.
+        {% else %}
+          Sem despesas vencidas.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Data</th>
+          <th scope="col">Descrição</th>
+          <th scope="col">Categoria</th>
+          <th scope="col" class="num">Valor</th>
+          <th scope="col" class="num">Pago</th>
+          <th scope="col" class="num">Em falta</th>
+          <th scope="col">Estado</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for despesa in despesas %}
+          <tr>
+            <th scope="row" class="num">{{ despesa.data_texto }}</th>
+            <td>
+              {{ despesa.descricao }}
+              {% if despesa.classificacao == 'fundo_reserva' %}
+                <span class="nota">· fundo de reserva</span>
+              {% endif %}
+            </td>
+            <td>{{ despesa.categoria_nome }}</td>
+            <td class="num">{{ despesa.amount_texto }}</td>
+            <td class="num">{{ despesa.pago_texto }}</td>
+            <td class="num">{{ despesa.em_falta_texto }}</td>
+            <td>
+              {% if despesa.estado == 'paga' %}paga
+              {% elif despesa.estado == 'vencida' %}<span class="erro">vencida</span>
+              {% elif despesa.estado == 'parcial' %}parcialmente paga
+              {% elif despesa.estado == 'anulada' %}<span class="nota">anulada</span>
+              {% else %}por pagar{% endif %}
+            </td>
+            <td><a href="{{ url_for('despesas.expense_detail', expense_id=despesa.id) }}">Abrir</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    {% if tem_categorias %}
+      Ainda não há despesas registadas. <a href="{{ url_for('despesas.new_expense') }}">Registar a primeira despesa</a>.
+    {% else %}
+      Ainda não há despesas nem categorias. As categorias são definidas por ti:
+      <a href="{{ url_for('despesas.categories') }}">criar a primeira categoria</a> e depois
+      <a href="{{ url_for('despesas.new_expense') }}">registar a primeira despesa</a>.
+    {% endif %}
+  </p>
+{% endif %}
+{% endblock %}

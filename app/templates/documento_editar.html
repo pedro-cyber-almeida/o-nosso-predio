@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Editar documento n.º {{ documento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Editar documento</h1>
+
+<p class="nota">
+  Só os metadados mudam: o ficheiro em si não é substituído. Para uma versão
+  corrigida usa 「Nova versão」 na página do documento.
+</p>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="titulo">Título
+    <input id="titulo" name="titulo" maxlength="160" required value="{{ documento.titulo or documento.resumo or documento.nome_original }}">
+  </label>
+
+  <div class="grelha-campos">
+    <label for="categoria">Categoria
+      <select id="categoria" name="categoria" required>
+        {% for categoria in categorias %}
+          <option value="{{ categoria }}"{% if documento.categoria == categoria %} selected{% endif %}>{{ categoria }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label for="data_documento">Data do documento
+      <input id="data_documento" type="date" name="data_documento" value="{{ documento.data_documento }}">
+    </label>
+  </div>
+
+  <div class="grelha-campos">
+    <label for="ata_numero">Número da ata
+      <input id="ata_numero" name="ata_numero" maxlength="60" value="{{ documento.ata_numero }}">
+      <span class="ajuda">Só guardado quando a categoria é Ata.</span>
+    </label>
+    <label for="ata_data">Data da reunião
+      <input id="ata_data" type="date" name="ata_data" value="{{ documento.ata_data }}">
+      <span class="ajuda">Só guardado quando a categoria é Ata.</span>
+    </label>
+  </div>
+
+  <label for="descricao">Descrição
+    <textarea id="descricao" name="descricao" rows="4" maxlength="1000">{{ documento.descricao }}</textarea>
+  </label>
+
+  <div class="acoes">
+    <button type="submit">Guardar metadados</button>
+    <a class="botao secundario" href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

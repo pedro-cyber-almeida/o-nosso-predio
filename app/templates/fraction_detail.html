@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Fração {{ fraction.code }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Fração {{ fraction.code }}</h1>
+
+<section class="cartao">
+  <p>Permilagem: <strong>{{ fraction.permilagem_texto }}</strong></p>
+  <p>Estado: <strong>{{ "ativa" if fraction.active else "desativada" }}</strong></p>
+  <p>Registada em: {{ fraction.created_at }}</p>
+  {% if fraction.referencias %}
+    <p class="nota">Registos associados: {{ fraction.referencias | join(", ") }}.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Responsáveis atuais</h2>
+  {% if fraction.current_owners %}
+    <ul>
+      {% for o in fraction.current_owners %}
+        <li>
+          <strong>{{ o.name }}</strong> — {{ ROLE_LABELS[o.role] }}
+          {% if o.email %} · {{ o.email }}{% endif %}
+          {% if o.phone %} · {{ o.phone }}{% endif %}
+          {% if o.address %} · {{ o.address }}{% endif %}
+          <form method="post"
+                action="{{ url_for('fractions.close_owner', fraction_id=fraction.id, owner_id=o.id) }}"
+                class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="revisao_responsaveis" value="{{ revisao_responsaveis(fraction.id) }}">
+            <label>Encerrar em
+              <input type="date" name="valid_to" value="{{ today }}" max="{{ today }}" required>
+            </label>
+            <button type="submit">Encerrar</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="vazio">
+      Nenhum responsável atual. Regista um abaixo ou deixa vazio se ainda não confirmaste.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Registar responsável</h2>
+  <form method="post" action="{{ url_for('fractions.add_owner', fraction_id=fraction.id) }}"
+        class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_responsaveis" value="{{ revisao_responsaveis(fraction.id) }}">
+
+    <label for="name">Nome
+      <input id="name" name="name" required autocomplete="off">
+    </label>
+
+    <label for="role">Função
+      <select id="role" name="role">
+        {% for valor in OWNER_ROLES %}
+          <option value="{{ valor }}">{{ ROLE_LABELS[valor] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label for="valid_from">Desde (primeiro dia, inclusivo)
+      <input id="valid_from" type="date" name="valid_from" value="{{ today }}">
+    </label>
+
+    <label for="valid_to">Até (último dia, inclusivo; vazio enquanto estiver em aberto)
+      <input id="valid_to" type="date" name="valid_to" max="{{ today }}">
+    </label>
+
+    <label for="email">Email (opcional)
+      <input id="email" type="email" name="email" autocomplete="off">
+    </label>
+
+    <label for="phone">Telefone (opcional)
+      <input id="phone" name="phone" autocomplete="off">
+    </label>
+
+    <label for="address">Morada de contacto (opcional)
+      <input id="address" name="address" autocomplete="off">
+    </label>
+
+    <label for="source">Fonte da informação (opcional)
+      <input id="source" name="source" autocomplete="off" placeholder="Ata n.º 23">
+    </label>
+
+    <button type="submit">Registar responsável</button>
+  </form>
+</section>
+
+<section>
+  <h2>Histórico de responsáveis</h2>
+  {% if fraction.owners %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Nome</th>
+          <th scope="col">Função</th>
+          <th scope="col">Desde</th>
+          <th scope="col">Até</th>
+          <th scope="col">Fonte</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in fraction.owners %}
+          <tr>
+            <td>{{ o.name }}</td>
+            <td>{{ ROLE_LABELS[o.role] }}</td>
+            <td>{{ format_date(o.valid_from) }}</td>
+            <td>{{ format_date(o.valid_to) if o.valid_to else "atual" }}</td>
+            <td>{{ o.source or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="vazio">Ainda sem responsáveis registados.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Alterar fração</h2>
+  <form method="post" action="{{ url_for('fractions.edit_fraction', fraction_id=fraction.id) }}"
+        class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_fracoes" value="{{ revisao_fracoes() }}">
+    <label for="edit-code">Identificação da fração
+      <input id="edit-code" name="code" value="{{ fraction.code }}" maxlength="8" required
+             {% if not fraction.pode_renomear %}readonly{% endif %}>
+    </label>
+    {% if not fraction.pode_renomear %}
+      <p class="nota">A identificação não pode ser mudada enquanto existirem registos associados.</p>
+    {% endif %}
+    <label>
+      <input type="checkbox" name="active" {% if fraction.active %}checked{% endif %}>
+      Fração ativa
+    </label>
+    <button type="submit">Guardar alterações</button>
+  </form>
+</section>
+
+<section>
+  <h2>Eliminar</h2>
+  <p class="nota">
+    Não há redistribuição automática. Se uma fração puder ser eliminada, escreves aqui
+    as novas permilagens das restantes: quando a soma estava completa tem de continuar
+    exatamente 1000,00, tens de confirmar a redistribuição e indicar o motivo, que fica
+    no rasto. Uma fração com registos financeiros, responsáveis ou alterações de
+    permilagem não pode ser eliminada. Desativar preserva tudo.
+  </p>
+  {% if fraction.referencias %}
+    <p class="erro">Esta fração tem registos associados ({{ fraction.referencias | join(", ") }})
+      e por isso não pode ser eliminada.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('fractions.delete_fraction', fraction_id=fraction.id) }}"
+        class="formulario"
+        onsubmit="return confirm('Eliminar a fração {{ fraction.code }} com a redistribuição escrita aqui? Esta ação não pode ser desfeita.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_fracoes" value="{{ revisao_fracoes() }}">
+    {% if restantes %}
+      <table class="tabela-form">
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col">Guardada</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in restantes %}
+            <tr>
+              <th scope="row">{{ f.code }}</th>
+              <td>
+                <input name="permilagem_{{ f.id }}" value="{{ f.permilagem }}"
+                       autocomplete="off" aria-label="Permilagem da fração {{ f.code }}">
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <label>
+        <input type="checkbox" name="confirmar_reparticao">
+        Confirmo a redistribuição de permilagens pelas frações que ficam.
+      </label>
+
+      <label for="motivo-eliminar">Motivo da alteração
+        <input id="motivo-eliminar" name="motivo" autocomplete="off"
+               placeholder="Ex.: fração extinta por decisão de assembleia">
+      </label>
+    {% else %}
+      <p class="nota">Não ficam outras frações: a eliminação não é possível.</p>
+    {% endif %}
+    <button type="submit" class="perigoso">Eliminar fração com redistribuição confirmada</button>
+  </form>
+</section>
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('fractions.permilagens') }}">Repartir permilagens</a>
+  <a class="botao secundario" href="{{ url_for('fractions.fractions_list') }}">Voltar às frações</a>
+</p>
+{% endblock %}

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Email — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>{{ assunto }}</h1>
+
+<div class="cartoes">
+  <div class="cartao ficha">
+    <p class="rotulo">Remetente</p>
+    <p>{{ remetente }}</p>
+    <p class="rotulo">Destinatários</p>
+    <p>{{ destinatarios }}</p>
+    <p class="rotulo">Data</p>
+    <p>{{ data_texto }}</p>
+  </div>
+</div>
+
+<div class="acoes">
+  <form method="post" action="{{ url_for('email.email_guardar', mensagem_id=mensagem_id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="botao">Guardar como documento</button>
+  </form>
+  <a class="botao texto" href="{{ url_for('email.email_lista') }}">Voltar à lista</a>
+</div>
+
+<section aria-label="Corpo da mensagem">
+  <h2>Corpo</h2>
+  {% if corpo %}
+    {% if tipo_corpo == 'text/html-sanitizado' %}
+      {# HTML já passado por bleach: sem scripts, sem atributos, sem conteúdo remoto. #}
+      <div class="corpo-email">{{ corpo | safe }}</div>
+    {% else %}
+      <pre class="corpo-email">{{ corpo }}</pre>
+    {% endif %}
+    {% if corpo_truncado %}
+      <p class="nota">Corpo comprido: mostramos os primeiros caracteres; guarda o email
+      como documento para ler o resto.</p>
+    {% endif %}
+  {% else %}
+    <p class="vazio">O Gmail não devolveu um corpo legível para esta mensagem.</p>
+  {% endif %}
+  <p class="nota">Apresentação isolada e sanitizada: sem scripts nem carregamento
+  automático de conteúdo remoto.</p>
+</section>
+
+<section aria-label="Anexos">
+  <h2>Anexos</h2>
+  {% if erro_estrutura %}
+    <p class="aviso-config" role="alert">{{ erro_estrutura }}</p>
+  {% elif anexos %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Ficheiro</th>
+            <th scope="col">Tipo</th>
+            <th scope="col" class="num">Tamanho</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for anexo in anexos %}
+            <tr>
+              <th scope="row">{{ anexo.nome }}</th>
+              <td>{{ anexo.mime }}</td>
+              <td class="num">{{ (anexo.tamanho // 1024) }} KB</td>
+              <td>
+                <a href="{{ url_for('email.email_anexo', mensagem_id=mensagem_id, anexo_id=anexo.attachment_id) }}">Descarregar</a>
+                <form method="post" class="em-linha"
+                      action="{{ url_for('email.email_anexo_guardar', mensagem_id=mensagem_id, anexo_id=anexo.attachment_id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="botao texto pequeno">Guardar como documento</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="nota">PDF abre no navegador. Limite de 10 MB por anexo.</p>
+  {% else %}
+    <p class="vazio">Sem anexos nesta mensagem.{% if conversa %} Se procuras um anexo da
+    conversa, vê as mensagens abaixo — cada uma tem os seus.{% endif %}</p>
+  {% endif %}
+</section>
+
+{% if conversa or erro_conversa %}
+  <section aria-label="Mensagens da conversa">
+    <h2>Mensagens da conversa</h2>
+    {% if erro_conversa %}
+      <p class="aviso-config" role="alert">{{ erro_conversa }}</p>
+    {% endif %}
+    <ul class="lista-conversa">
+      {% for item in conversa %}
+        <li>
+          {% if item.atual %}
+            <strong>{{ item.assunto }}</strong> — {{ item.remetente }} · {{ item.data_texto }}
+          {% else %}
+            <a href="{{ url_for('email.email_mensagem', mensagem_id=item.id) }}">{{ item.assunto }}</a>
+            — {{ item.remetente }} · {{ item.data_texto }}
+          {% endif %}
+          {% if item.anexos %}· {{ item.anexos }} anexo(s){% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+{% endblock %}

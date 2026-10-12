@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Gerar cobranças — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Gerar cobranças de {{ plano.period_texto }}</h1>
+
+<form method="get" action="{{ url_for('quotas.generate') }}" class="acoes">
+  <label for="period">Mês a pré-visualizar
+    <input id="period" name="period" value="{{ plano.period_texto }}" autocomplete="off"
+           placeholder="01/2027">
+  </label>
+  <button type="submit" class="secundario botao">Ver mês</button>
+  {% if anterior %}
+  <a class="botao secundario" href="{{ url_for('quotas.generate', period=anterior) }}">Mês anterior</a>
+  {% endif %}
+  {% if seguinte %}
+  <a class="botao secundario" href="{{ url_for('quotas.generate', period=seguinte) }}">Mês seguinte</a>
+  {% endif %}
+</form>
+
+{% if plano.erros %}
+  <ul class="mensagens">
+    {% for erro in plano.erros %}
+      <li class="erro">{{ erro }}</li>
+    {% endfor %}
+  </ul>
+  <p class="vazio">
+    Este mês não pode ser gerado enquanto houver um problema por resolver.
+    Nenhuma cobrança foi criada.
+  </p>
+  <form method="post" action="{{ url_for('quotas.generate') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_geracao" value="{{ revisao_geracao() }}">
+    <input type="hidden" name="period" value="{{ plano.period }}">
+    <button type="submit" disabled>Gerar {{ plano.period_texto }} (bloqueado)</button>
+    <p class="nota">
+      A confirmação aparece bloqueada: mesmo enviada, a aplicação recusaria este mês
+      enquanto os erros acima não estiverem resolvidos.
+    </p>
+  </form>
+{% endif %}
+
+<section>
+  <h2>Pré-visualização</h2>
+  {% if plano.linhas %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Fração</th>
+          <th scope="col">Rubrica</th>
+          <th scope="col">Valor</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in plano.linhas %}
+          <tr>
+            <th scope="row">{{ linha.code }}</th>
+            <td>{{ linha.rubrica_texto }}</td>
+            <td>{{ linha.amount_texto }}</td>
+            <td>{{ "nova" if linha.nova else "já emitida" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Quota ordinária</th>
+          <td colspan="2">{{ format_money(plano.totais.quota_ordinaria) }}</td>
+          <td>{{ plano.novas }} nova(s), {{ plano.repetidas }} já emitida(s)</td>
+        </tr>
+        <tr>
+          <th scope="row">Reforço do fundo</th>
+          <td colspan="2">{{ format_money(plano.totais.reforco_fundo) }}</td>
+          <td></td>
+        </tr>
+        <tr>
+          <th scope="row">Total do mês</th>
+          <td colspan="2">{{ format_money(plano.total) }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  {% else %}
+    <p class="vazio">
+      Não há regras em vigor para este mês, por isso não há cobranças a gerar.
+    </p>
+  {% endif %}
+
+  <p class="nota">
+    Vencimento: <strong>{{ plano.vencimento_texto }}</strong>.
+    Enquanto o dia de vencimento estiver por confirmar, as cobranças não têm data de
+    vencimento e não são classificadas como vencidas.
+    Valores emitidos não são dinheiro recebido.
+  </p>
+</section>
+
+{% if plano.linhas and not plano.erros %}
+  <section>
+    <h2>Confirmar a geração</h2>
+    <form method="post" action="{{ url_for('quotas.generate') }}" class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="revisao_geracao" value="{{ revisao_geracao() }}">
+      <input type="hidden" name="period" value="{{ plano.period }}">
+      <p class="nota">
+        Confirmas {{ plano.novas }} cobrança(s) nova(s) para {{ plano.period_texto }},
+        no total de {{ format_money(plano.total) }}. Gerar o mesmo mês outra vez não
+        duplica o que já foi emitido.
+      </p>
+      <label>
+        <input type="checkbox" id="confirmar_geracao" name="confirmar_geracao">
+        Confirmo a geração deste mês com os valores acima.
+      </label>
+      <button type="submit">Gerar cobranças</button>
+    </form>
+  </section>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+  <a class="botao secundario" href="{{ url_for('quotas.charges') }}">Cobranças geradas</a>
+</p>
+{% endblock %}

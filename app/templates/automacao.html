@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Automatização bancária — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Automatização bancária</h1>
+
+<p class="nota">
+  A automatização consulta emails dos remetentes que definires, guarda os anexos
+  como documentos, extrai movimentos <strong>sem IA</strong> e trata os casos
+  reconhecidos. Começa <strong>desativada</strong> e em modo
+  <strong>«apenas propor»</strong>: nada é registado sem tu confirmares.
+  Comprovativos e extratos nunca alteram saldos por si próprios; os registos
+  automáticos passam pelas mesmas validações dos formulários manuais e ficam
+  ligados ao documento de origem. A afetação do dinheiro às cobranças continua
+  a ser feita à mão.
+</p>
+
+{% if em_curso %}
+  <p class="aviso-config">
+    Execução n.º {{ em_curso.id }} em curso (iniciada em {{ em_curso.iniciado_em }}).
+    Um ciclo de cada vez; atualiza a página para ver o estado.
+  </p>
+{% endif %}
+
+<section aria-label="Estado">
+  <h2>Estado</h2>
+  <ul>
+    <li>Automatização: <strong>{{ "ativa" if config.ativa else "desativada" }}</strong>
+        · modo: <strong>{{ "registar automaticamente" if config.modo == "registar" else "apenas propor (pré-visualização)" }}</strong></li>
+    <li>Última consulta: {{ config.ultima_consulta or "nunca" }}</li>
+    {% if ultima %}
+      <li>Última execução: n.º {{ ultima.id }} · {{ ultima.estado }}
+          · {{ ultima.iniciado_em }}
+          {% if ultima.erro %} — {{ ultima.erro }}{% endif %}</li>
+    {% endif %}
+    <li>À espera de revisão: <strong>{{ pendentes }}</strong> movimento(s)
+        · {{ extracoes_pendentes }} documento(s) por analisar</li>
+    <li><a href="{{ url_for('automacao.revisao') }}">Página de revisão</a></li>
+  </ul>
+  <form method="post" action="{{ url_for('automacao.executar') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="botao">Executar agora</button>
+  </form>
+</section>
+
+<section aria-label="Configuração">
+  <h2>Configuração</h2>
+  <form method="post" action="{{ url_for('automacao.guardar_config') }}" class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <input type="checkbox" name="auto_ativa" {{ 'checked' if config.ativa }}>
+      Automatização ativa
+    </label>
+    <label for="auto_remetentes">Remetentes esperados (domínios separados por vírgulas)
+      <input id="auto_remetentes" name="auto_remetentes" autocomplete="off"
+             value="{{ config.remetentes|join(', ') }}"
+             placeholder="millenniumbcp.pt">
+    </label>
+    <label for="auto_desde">Processar a partir de (AAAA-MM-DD; vazio = desde a última consulta)
+      <input id="auto_desde" name="auto_desde" type="date" value="{{ config.desde }}">
+    </label>
+    <label for="auto_modo">O que fazer com movimentos reconhecidos e validados
+      <select id="auto_modo" name="auto_modo">
+        <option value="propor" {{ 'selected' if config.modo == 'propor' }}>Apenas propor (pré-visualização)</option>
+        <option value="registar" {{ 'selected' if config.modo == 'registar' }}>Registar automaticamente</option>
+      </select>
+    </label>
+    <button type="submit" class="botao">Guardar configuração</button>
+  </form>
+  <p class="nota">
+    O endereço visível do remetente não é prova de autenticidade: só emails com
+    SPF e DKIM aprovados pelo Gmail podem gerar registos. Os restantes vão para revisão.
+  </p>
+</section>
+
+<section aria-label="Correspondências">
+  <h2>Correspondências (IBAN / ordenante / referência → fração ou fornecedor)</h2>
+  {% if correspondencias %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Tipo</th>
+            <th scope="col">Padrão</th>
+            <th scope="col">Alvo</th>
+            <th scope="col">Comissões</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in correspondencias %}
+            <tr>
+              <th scope="row">{{ c.tipo }}</th>
+              <td>{{ c.padrao }}</td>
+              <td>{{ c.fracao_code if c.alvo_tipo == 'fracao' else c.alvo_texto }}</td>
+              <td>{{ "regra explícita ativa" if c.comissao else "—" }}</td>
+              <td>{{ "ativa" if c.ativo else "desativada" }}</td>
+              <td>
+                <form method="post" action="{{ url_for('automacao.alternar_correspondencia', correspondencia_id=c.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="botao-secundario">{{ "desativar" if c.ativo else "reativar" }}</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não definiste correspondências. Sem elas, nada é registado
+      automaticamente: os movimentos vão todos para revisão.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('automacao.adicionar_correspondencia') }}" class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label for="tipo">Tipo
+      <select id="tipo" name="tipo">
+        <option value="iban">IBAN do condómino</option>
+        <option value="ordenante">Nome do ordenante</option>
+        <option value="referencia">Referência</option>
+      </select>
+    </label>
+    <label for="padrao">Padrão a procurar
+      <input id="padrao" name="padrao" autocomplete="off" maxlength="200" required
+             placeholder="IBAN, nome ou referência">
+    </label>
+    <label for="alvo_tipo">Alvo
+      <select id="alvo_tipo" name="alvo_tipo">
+        <option value="fracao">Fração</option>
+        <option value="fornecedor">Fornecedor</option>
+      </select>
+    </label>
+    <label for="alvo_id">Fração
+      <select id="alvo_id" name="alvo_id">
+        {% for fracao in fracoes %}
+          <option value="{{ fracao.id }}">{{ fracao.code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label for="alvo_texto">Fornecedor (nome como aparece nas despesas)
+      <input id="alvo_texto" name="alvo_texto" autocomplete="off" maxlength="120">
+    </label>
+    <label>
+      <input type="checkbox" name="comissao">
+      Esta correspondência autoriza criar despesa por comissões bancárias (regra explícita)
+    </label>
+    <button type="submit" class="botao">Adicionar correspondência</button>
+  </form>
+</section>
+
+<section aria-label="Histórico">
+  <h2>Últimas execuções</h2>
+  {% if historico %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Início</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Resumo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in historico %}
+            <tr>
+              <th scope="row">{{ p.id }}</th>
+              <td>{{ p.iniciado_em }}</td>
+              <td>{{ p.estado }}{% if p.erro %} — {{ p.erro }}{% endif %}</td>
+              <td>{{ p.resumo_json }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não houve execuções.</p>
+  {% endif %}
+</section>
+{% endblock %}

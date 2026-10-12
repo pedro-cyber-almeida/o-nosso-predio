@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Carregar documentos — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Carregar documentos</h1>
+
+<p class="nota">
+  Aceita <strong>PDF, PNG, JPG, DOCX e XLSX</strong>, até <strong>{{ limite_mb }} MB por
+  ficheiro</strong>. PDF e imagens veem-se aqui dentro; DOCX e XLSX descarregam-se.
+  Os ficheiros ficam guardados fora da pasta pública, só acessíveis por esta
+  aplicação. Os documentos começam <strong>privados</strong>: partilhas depois,
+  quando quiseres. Nenhum upload cria movimentos financeiros.
+</p>
+
+<form method="post" class="formulario" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="ficheiros">Ficheiros
+    <input id="ficheiros" type="file" name="ficheiros" multiple required
+           accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx">
+    <span class="ajuda">Podes selecionar um ou vários de uma vez.</span>
+  </label>
+
+  <div class="grelha-campos">
+    <label for="categoria">Categoria
+      <select id="categoria" name="categoria" required>
+        {% for opcao in categorias %}
+          <option value="{{ opcao }}"{% if opcao == categoria %} selected{% endif %}>{{ opcao }}</option>
+        {% endfor %}
+      </select>
+      <span class="ajuda">Aplica-se a todos os ficheiros deste envio.</span>
+    </label>
+    <label for="data_documento">Data do documento
+      <input id="data_documento" type="date" name="data_documento">
+      <span class="ajuda">Opcional. Para atas, é a data da reunião.</span>
+    </label>
+  </div>
+
+  <label for="titulo">Título
+    <input id="titulo" name="titulo" maxlength="160"
+           placeholder="por exemplo: Ata n.º 23 — assembleia de outubro">
+    <span class="ajuda">Usa-se quando carregas um só ficheiro; com vários, cada
+      documento recebe o nome do seu ficheiro.</span>
+  </label>
+
+  <div class="grelha-campos">
+    <label for="ata_numero">Número da ata
+      <input id="ata_numero" name="ata_numero" maxlength="60" placeholder="só para a categoria Ata">
+      <span class="ajuda">Opcional. Guardado apenas quando a categoria é Ata.</span>
+    </label>
+    <label for="ata_data">Data da reunião
+      <input id="ata_data" type="date" name="ata_data">
+      <span class="ajuda">Opcional. Guardado apenas quando a categoria é Ata.</span>
+    </label>
+  </div>
+
+  <label for="descricao">Descrição
+    <textarea id="descricao" name="descricao" rows="4" maxlength="1000"></textarea>
+    <span class="ajuda">Opcional.</span>
+  </label>
+
+  <label class="caixa">
+    <input type="checkbox" name="repetido" value="on">
+    Guardar mesmo assim, se um ficheiro for idêntico a um documento já guardado
+  </label>
+  <p class="ajuda">
+    A aplicação calcula a assinatura (SHA-256) de cada ficheiro e avisa antes de
+    duplicar. Sem esta caixa, ficheiros repetidos não são guardados.
+  </p>
+
+  <button type="submit">Carregar documentos</button>
+</form>
+
+<p class="nota">
+  <a href="{{ url_for('documentos.documentos_lista') }}">Voltar à biblioteca</a>
+</p>
+{% endblock %}

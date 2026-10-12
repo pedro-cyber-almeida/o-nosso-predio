@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Cobranças de {{ period_texto }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Cobranças de {{ period_texto }}</h1>
+
+<p class="acoes">
+  {% if anterior %}
+  <a class="botao secundario" href="{{ url_for('quotas.charge_month', period=anterior) }}">Mês anterior</a>
+  {% endif %}
+  {% if seguinte %}
+  <a class="botao secundario" href="{{ url_for('quotas.charge_month', period=seguinte) }}">Mês seguinte</a>
+  {% endif %}
+  <a class="botao secundario" href="{{ url_for('quotas.generate', period=period) }}">Pré-visualizar este mês</a>
+</p>
+
+{% if linhas %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Fração</th>
+          <th scope="col">Rubrica</th>
+          <th scope="col">Descrição</th>
+          <th scope="col" class="num">Valor</th>
+          <th scope="col" class="num">Liquidado</th>
+          <th scope="col" class="num">Em dívida</th>
+          <th scope="col">Vencimento</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Origem</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for linha in linhas %}
+          <tr>
+            <th scope="row">{{ linha.code }}</th>
+            <td>{{ linha.rubrica_texto }}</td>
+            <td>
+              {% if linha.descricao %}{{ linha.descricao }}{% else %}—{% endif %}
+            </td>
+            <td class="num">{{ linha.amount_texto }}</td>
+            <td class="num">{{ linha.pago_texto }}</td>
+            <td class="num">{{ linha.em_divida_texto }}</td>
+            <td>{{ linha.due_texto }}</td>
+            <td>
+              {% if linha.liquidada %}
+                liquidada
+              {% elif linha.vencida %}
+                <span class="erro">vencida</span>
+              {% else %}
+                emitida
+              {% endif %}
+            </td>
+            <td>{{ linha.regra }}{% if linha.source %} — {{ linha.source }}{% endif %}</td>
+            <td>
+              <a href="{{ url_for('quotas.correct_charge', charge_id=linha.id) }}">Corrigir</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Quota ordinária</th>
+          <td colspan="9" class="num">{{ format_money(totais.quota_ordinaria) }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Reforço do fundo</th>
+          <td colspan="9" class="num">{{ format_money(totais.reforco_fundo) }}</td>
+        </tr>
+        {% if totais.quota_extraordinaria %}
+          <tr>
+            <th scope="row">Quota extraordinária</th>
+            <td colspan="9" class="num">{{ format_money(totais.quota_extraordinaria) }}</td>
+          </tr>
+        {% endif %}
+        <tr>
+          <th scope="row">Total emitido</th>
+          <td colspan="9" class="num">{{ format_money(total) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <p class="nota">
+    Vencimento deste mês: <strong>{{ vencimento_texto }}</strong>.
+    Sem dia de vencimento confirmado nenhuma cobrança é apresentada como vencida.
+    Uma cobrança só deixa de estar vencida quando um pagamento válido a liquidou.
+    Uma cobrança emitida não é dinheiro recebido e não é apagada: se estiver errada,
+    corrige-se com motivo registado, e os pagamentos já feitos mantêm-se.
+    O que está liquidado vê-se em
+    <a href="{{ url_for('payments.payments_list') }}">Pagamentos e saldos</a>.
+  </p>
+{% else %}
+  <p class="vazio">
+    Não há cobranças geradas para {{ period_texto }}.
+    <a href="{{ url_for('quotas.generate', period=period) }}">Pré-visualizar o mês</a>
+    e confirmar a geração, se for esse o mês a cobrar.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('quotas.charges') }}">Todos os meses</a>
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+  <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quotas') }}">Quotas extraordinárias</a>
+</p>
+{% endblock %}

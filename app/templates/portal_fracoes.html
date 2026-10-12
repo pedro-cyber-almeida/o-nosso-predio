@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Minhas frações — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Minhas frações</h1>
+
+{% if fracoes %}
+  <div class="cartoes">
+    {% for fracao in fracoes %}
+      <div class="cartao ficha">
+        <p class="rotulo">Fração {{ fracao.code }}</p>
+        <p class="montante">{{ fracao.totais.divida_texto }}</p>
+        <p class="nota">em dívida (cobranças por liquidar)</p>
+        <p>
+          Crédito por afetar: <strong class="num">{{ fracao.totais.credito_texto }}</strong><br>
+          Dívida vencida: <strong class="num">{{ fracao.totais.vencida_texto }}</strong><br>
+          Recebido: <strong class="num">{{ fracao.totais.recebido_texto }}</strong>
+        </p>
+        <p class="acoes">
+          <a class="botao secundario" href="{{ url_for('portal.minha_fracao', fraction_id=fracao.id) }}">
+            Cobranças e pagamentos
+          </a>
+        </p>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não estás associado a nenhuma fração. Pede ao administrador para te
+    associar em Utilizadores.
+  </p>
+{% endif %}
+{% endblock %}

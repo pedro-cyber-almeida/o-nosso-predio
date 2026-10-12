@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block title %}Pagamento n.º {{ pagamento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Pagamento n.º {{ pagamento.id }} — fração {{ pagamento.code }}</h1>
+
+{% if pagamento.anulado %}
+  <p class="erro">
+    Este pagamento está anulado em {{ pagamento.cancelled_at }}:
+    {{ pagamento.cancellation_reason }}
+    O registo e as afetações conservam-se, mas deixaram de contar em todas as somas.
+  </p>
+{% endif %}
+
+{% if pagamento.edit_reason %}
+  <p class="nota">
+    Este pagamento foi corrigido em {{ pagamento.edited_at_texto }}:
+    {{ pagamento.edit_reason }}
+    <a href="{{ url_for('payments.payment_history', payment_id=pagamento.id) }}">
+      Ver as correções registadas
+    </a>
+  </p>
+{% endif %}
+
+<table>
+  <tbody>
+    <tr><th scope="row">Fração</th><td>{{ pagamento.code }}</td></tr>
+    <tr><th scope="row">Valor recebido</th><td>{{ format_money(pagamento.amount_cents) }}</td></tr>
+    <tr><th scope="row">Data</th><td>{{ pagamento.paid_on }}</td></tr>
+    <tr><th scope="row">Meio</th><td>{{ pagamento.method_texto }}</td></tr>
+    <tr><th scope="row">Referência</th><td>{{ pagamento.reference or "—" }}</td></tr>
+    <tr><th scope="row">Nota</th><td>{{ pagamento.source or "—" }}</td></tr>
+    <tr>
+      <th scope="row">Afetado a cobranças</th>
+      <td>{{ format_money(afetado_cents) }}</td>
+    </tr>
+    <tr>
+      <th scope="row">Crédito por afetar</th>
+      <td>
+        {% if pagamento.anulado %}
+          sem efeito: o pagamento está anulado
+        {% else %}
+          <strong>{{ format_money(credito_cents) }}</strong>
+        {% endif %}
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<section>
+  <h2>Afetações deste pagamento</h2>
+  {% if afetacoes %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Mês</th>
+          <th scope="col">Rubrica</th>
+          <th scope="col">Cobrança</th>
+          <th scope="col">Afetado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for afetao in afetacoes %}
+          <tr>
+            <td>{{ afetao.period_texto }}</td>
+            <td>{{ afetao.rubrica_texto }}</td>
+            <td>{{ afetao.charge_amount_texto }}</td>
+            <td>{{ format_money(afetao.amount_cents) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row" colspan="3">Total afetado</th>
+          <td>{{ format_money(afetado_cents) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+    <p class="nota">
+      A distribuição pode ser corrigida em <em>Editar pagamento</em>: retirar, reduzir ou
+      acrescentar afetações, com motivo e com o valor anterior guardado no histórico.
+    </p>
+  {% else %}
+    <p class="vazio">
+      {% if pagamento.anulado %}
+        Este pagamento nunca chegou a ser distribuído e está anulado: não é crédito de
+        nada e não liquidou nenhuma cobrança.
+      {% else %}
+        Este pagamento ainda não foi distribuído: o valor inteiro é crédito da fração
+        e não liquida nenhuma cobrança.
+      {% endif %}
+    </p>
+  {% endif %}
+</section>
+
+{% if not pagamento.anulado %}
+  <section>
+    <h2>Confirmar a distribuição</h2>
+    <p class="nota">
+      Escreve quanto deste pagamento liquidou cada cobrança. Só aparecem cobranças da
+      fração {{ pagamento.code }} com montante por liquidar. O que não distribuíres
+      continua como crédito e pode ser afetado mais tarde, sem voltar a contar como receita.
+      Disponível deste pagamento: <strong>{{ format_money(credito_cents) }}</strong>.
+    </p>
+
+    {% set por_liquidar = cobrancas | selectattr("em_divida_cents", "gt", 0) | list %}
+    {% if por_liquidar and credito_cents > 0 %}
+      <form method="post" action="{{ url_for('payments.allocate_payment', payment_id=pagamento.id) }}"
+            class="formulario">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="revisao_pagamentos" value="{{ revisao_pagamentos() }}">
+
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Mês</th>
+              <th scope="col">Rubrica</th>
+              <th scope="col">Cobrança</th>
+              <th scope="col">Já liquidado</th>
+              <th scope="col">Em dívida</th>
+              <th scope="col">Afetar agora (euros)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cobranca in por_liquidar %}
+              <tr>
+                <th scope="row">{{ cobranca.period_texto }}</th>
+                <td>{{ cobranca.rubrica_texto }}</td>
+                <td>{{ format_money(cobranca.amount_cents) }}</td>
+                <td>{{ format_money(cobranca.pago_cents) }}</td>
+                <td>{{ format_money(cobranca.em_divida_cents) }}</td>
+                <td>
+                  <label class="sr" for="afecao_{{ cobranca.id }}">
+                    Afetação a {{ cobranca.rubrica_texto }} de {{ cobranca.period_texto }}
+                  </label>
+                  <input id="afecao_{{ cobranca.id }}" name="afecao_{{ cobranca.id }}"
+                         autocomplete="off" inputmode="decimal" placeholder="0,00">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <label>
+          <input type="checkbox" id="confirmar_afetacao" name="confirmar_afetacao">
+          Confirmo que esta distribuição corresponde ao que o administrador confirmou.
+        </label>
+
+        <button type="submit">Confirmar distribuição</button>
+      </form>
+    {% else %}
+      <p class="vazio">
+        {% if credito_cents == 0 %}
+          Não há crédito por afetar neste pagamento: o valor já foi distribuído todo.
+        {% else %}
+          Não há cobranças desta fração com montante por liquidar.
+          O crédito de {{ format_money(credito_cents) }} fica registado e pode ser
+          afetado quando houver cobranças.
+        {% endif %}
+      </p>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section>
+  <h2>Correções registadas</h2>
+  {% if correcoes %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Quando</th>
+          <th scope="col">Motivo</th>
+          <th scope="col">Versão anterior</th>
+          <th scope="col">Versão corrigida</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for correcao in correcoes %}
+          <tr>
+            <th scope="row">{{ correcao.changed_at_texto }}</th>
+            <td>{{ correcao.reason }}</td>
+            <td>
+              fração {{ correcao.old.code }} · {{ format_money(correcao.old.amount_cents) }} ·
+              {{ correcao.old.paid_on_texto }} · {{ correcao.old.method_texto }} ·
+              {{ correcao.afetacoes_antes | length }} afetação(ões) ·
+              crédito {{ format_money(correcao.credito_antes_cents) }}
+            </td>
+            <td>
+              fração {{ correcao.new.code }} · {{ format_money(correcao.new.amount_cents) }} ·
+              {{ correcao.new.paid_on_texto }} · {{ correcao.new.method_texto }} ·
+              {{ correcao.afetacoes_depois | length }} afetação(ões) ·
+              crédito {{ format_money(correcao.credito_depois_cents) }}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="nota">
+      Quem alterou não é registado: a aplicação ainda não tem autenticação, por isso a
+      identidade não é inventada.
+      <a href="{{ url_for('payments.payment_history', payment_id=pagamento.id) }}">
+        Ver as versões anteriores, com as respetivas distribuições
+      </a>
+    </p>
+  {% else %}
+    <p class="vazio">
+      Este pagamento ainda não foi corrigido. Cada correção fica registada com os valores
+      anteriores, os novos, a data e o motivo.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Anular este pagamento</h2>
+  <p class="nota">
+    Anular conserva o pagamento e as suas afetações, com a data e o motivo, mas o
+    pagamento deixa de contar: as cobranças que liquidou voltam a estar em dívida e o
+    crédito remanescente deixa de existir. Uma devolução bancária não é uma anulação:
+    seria um movimento novo e pertence a uma fase seguinte.
+  </p>
+  {% if pagamento.anulado %}
+    <p class="vazio">Este pagamento já está anulado e uma anulação não se repete.</p>
+  {% else %}
+    <form method="post" action="{{ url_for('payments.cancel_payment', payment_id=pagamento.id) }}"
+          class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="revisao_pagamentos" value="{{ revisao_pagamentos() }}">
+
+      <label for="motivo">Motivo da anulação (obrigatório)
+        <input id="motivo" name="motivo" autocomplete="off"
+               placeholder="valor errado, pagamento duplicado, movimento que não existia" required>
+      </label>
+
+      <label>
+        <input type="checkbox" id="confirmar_anular" name="confirmar_anular">
+        Confirmo a anulação deste pagamento e a reversão dos seus efeitos.
+      </label>
+
+      <button type="submit">Anular pagamento</button>
+    </form>
+  {% endif %}
+</section>
+
+<p class="acoes">
+  {% if not pagamento.anulado %}
+    <a class="botao" href="{{ url_for('payments.edit_payment', payment_id=pagamento.id) }}">
+      Editar este pagamento
+    </a>
+  {% else %}
+    <span class="nota">Um pagamento anulado não é editado nem reativado.</span>
+  {% endif %}
+  <a class="botao secundario" href="{{ url_for('payments.payments_list') }}">Pagamentos e saldos</a>
+  <a class="botao secundario" href="{{ url_for('payments.fraction_balance', fraction_id=pagamento.fraction_id) }}">
+    Histórico da fração {{ pagamento.code }}
+  </a>
+  <a class="botao secundario" href="{{ url_for('payments.add_payment') }}">Registar outro pagamento</a>
+</p>
+{% endblock %}

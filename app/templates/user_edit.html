@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Utilizador {{ alvo.username }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Utilizador {{ alvo.username }}</h1>
+<p class="nota">
+  Criado em {{ alvo.created_texto }}. O nome de utilizador não muda: é a identidade
+  que aparece no rasto de correções. Para fechar um acesso, desativa em vez de apagar.
+</p>
+
+<form method="post" action="{{ url_for('auth.edit_user', user_id=alvo.id) }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="nome">Nome visível
+    <input id="nome" name="nome" autocomplete="off" value="{{ valores.nome }}">
+  </label>
+
+  <label for="papel">Papel
+    <select id="papel" name="papel" required>
+      <option value="condomino"{% if valores.papel == 'condomino' %} selected{% endif %}>Condómino</option>
+      <option value="administrador"{% if valores.papel == 'administrador' %} selected{% endif %}>Administrador</option>
+    </select>
+  </label>
+
+  <label class="caixa">
+    <input type="checkbox" id="ativo" name="ativo" {% if valores.ativo %}checked{% endif %}>
+    Acesso ativo
+  </label>
+
+  <fieldset>
+    <legend>Frações associadas</legend>
+    {% for fracao in fracoes %}
+      <label class="caixa">
+        <input type="checkbox" name="fracao_{{ fracao.id }}"
+               {% if fracao.id in associadas %}checked{% endif %}>
+        {{ fracao.code }}{% if not fracao.active %} (desativada){% endif %}
+      </label>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Palavra-passe</legend>
+    <p class="nota">
+      {% if alvo.password_changed_texto %}
+        Definida pela última vez em {{ alvo.password_changed_texto }}.
+      {% else %}
+        Nunca foi alterada desde a criação.
+      {% endif %}
+      Deixa os campos vazios para conservar a palavra-passe atual.
+    </p>
+    <label for="palavra_passe_nova">Nova palavra-passe (opcional, mínimo 10 caracteres)
+      <input id="palavra_passe_nova" name="palavra_passe_nova" type="password"
+             autocomplete="new-password">
+    </label>
+    <label for="confirmar_palavra_passe">Confirmar nova palavra-passe
+      <input id="confirmar_palavra_passe" name="confirmar_palavra_passe" type="password"
+             autocomplete="new-password">
+    </label>
+  </fieldset>
+
+  <p class="acoes">
+    <button type="submit">Guardar alterações</button>
+    <a class="botao secundario" href="{{ url_for('auth.users_list') }}">Cancelar</a>
+  </p>
+</form>
+{% endblock %}

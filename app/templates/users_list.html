@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Utilizadores — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Utilizadores</h1>
+<p class="nota">
+  {{ administradores_ativos }} administrador(es) ativo(s). Um utilizador não é
+  apagado: desativar conserva o rasto de correções. O nome de utilizador não muda.
+</p>
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('auth.new_user') }}">Novo utilizador</a>
+</p>
+
+<div class="tabela-inv">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Utilizador</th>
+        <th scope="col">Nome visível</th>
+        <th scope="col">Papel</th>
+        <th scope="col">Frações</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Palavra-passe definida</th>
+        <th scope="col"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in utilizadores %}
+        <tr>
+          <th scope="row">{{ u.username }}</th>
+          <td>{{ u.display_name or "—" }}</td>
+          <td>{{ u.role_texto }}</td>
+          <td class="num">{{ u.fracoes | join(", ") if u.fracoes else "—" }}</td>
+          <td>
+            {% if u.active %}ativo{% else %}<span class="erro">desativado</span>{% endif %}
+          </td>
+          <td class="num">{{ u.password_changed_texto or "—" }}</td>
+          <td><a href="{{ url_for('auth.edit_user', user_id=u.id) }}">Abrir</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

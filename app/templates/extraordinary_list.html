@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Quotas extraordinárias — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Quotas extraordinárias</h1>
+
+<p class="nota">
+  Decisões pontuais: um montante total, repartido pelas frações abrangidas, cobrado de
+  uma vez ou em prestações. Cada prestação é uma cobrança com o seu vencimento, e vê-se
+  nas consultas de cobranças e no portal dos condóminos.
+</p>
+
+{% if quotas %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Descrição</th>
+          <th scope="col" class="num">Montante total</th>
+          <th scope="col">Repartição</th>
+          <th scope="col" class="num">Frações</th>
+          <th scope="col" class="num">Prestações</th>
+          <th scope="col" class="num">Cobranças emitidas</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in quotas %}
+          <tr>
+            <th scope="row">{{ q.descricao }}</th>
+            <td class="num">{{ q.total_texto }}</td>
+            <td>{{ q.reparticao_texto }}</td>
+            <td class="num">{{ q.fracoes|length }}</td>
+            <td class="num">{{ q.prestacoes|length }}</td>
+            <td class="num">
+              {% if q.emitidas %}{{ q.emitidas }}{% else %}<span class="nota">nenhuma</span>{% endif %}
+            </td>
+            <td><a href="{{ url_for('quotas.extraordinary_detail', quota_id=q.id) }}">Abrir</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não há quotas extraordinárias registadas.
+    <a href="{{ url_for('quotas.extraordinary_quota') }}">Registar uma quota extraordinária</a>
+    quando houver uma decisão registada para cobrar.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('quotas.extraordinary_quota') }}">Registar quota extraordinária</a>
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+  <a class="botao secundario" href="{{ url_for('quotas.charges') }}">Cobranças geradas</a>
+</p>
+{% endblock %}

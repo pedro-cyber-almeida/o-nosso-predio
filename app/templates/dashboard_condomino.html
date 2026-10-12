@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Painel do condómino — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Painel</h1>
+<p class="nota">
+  Vês apenas as frações a que estás associado. Valores emitidos (cobranças) não
+  são dinheiro recebido; o crédito é dinheiro teu ainda não distribuído.
+</p>
+
+{% if tem_fracoes %}
+  <div class="cartoes">
+    <div class="cartao ficha">
+      <p class="rotulo">Por pagar</p>
+      <p class="montante">{{ divida_texto }}</p>
+      <p class="nota">Cobranças emitidas e ainda não liquidadas.</p>
+    </div>
+    <div class="cartao ficha">
+      <p class="rotulo">Dívida vencida</p>
+      <p class="montante">
+        {% if tem_divida_vencida %}{{ vencida_texto }}
+        {% else %}<span class="por-confirmar">sem vencimentos vencidos</span>{% endif %}
+      </p>
+      <p class="nota">Só cobranças com data de vencimento já passada.</p>
+    </div>
+    <div class="cartao ficha">
+      <p class="rotulo">Crédito por afetar</p>
+      <p class="montante">
+        {% if tem_credito %}{{ credito_texto }}
+        {% else %}<span class="por-confirmar">sem crédito</span>{% endif %}
+      </p>
+      <p class="nota">Pagaste a mais ou adiantaste: o administrador afeta às cobranças.</p>
+    </div>
+  </div>
+
+  <h2>Próximos vencimentos</h2>
+  {% if tem_cobrancas %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col">Mês</th>
+            <th scope="col">Rubrica</th>
+            <th scope="col" class="num">Em dívida</th>
+            <th scope="col">Vencimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cobranca in proximas_cobrancas %}
+            <tr>
+              <th scope="row">{{ cobranca.code }}</th>
+              <td>{{ cobranca.period_texto }}</td>
+              <td>{{ cobranca.rubrica_texto }}</td>
+              <td class="num">{{ format_money(cobranca.em_divida_cents) }}</td>
+              <td class="num">
+                {% if cobranca.vencida %}
+                  <span class="erro">{{ cobranca.due_texto }} (vencida)</span>
+                {% elif cobranca.due_date %}
+                  {{ cobranca.due_texto }}
+                {% else %}
+                  <span class="por-confirmar">por confirmar</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Nada por liquidar nas tuas frações.</p>
+  {% endif %}
+
+  <h2>Pagamentos recentes</h2>
+  {% if pagamentos_recentes %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Fração</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col">Meio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pagamento in pagamentos_recentes %}
+            <tr>
+              <th scope="row" class="num">{{ pagamento.data_texto }}</th>
+              <td>{{ pagamento.code }}</td>
+              <td class="num">
+                {{ pagamento.valor_texto }}
+                {% if pagamento.anulado %}<span class="erro">(anulado)</span>{% endif %}
+              </td>
+              <td>{{ pagamento.meio_texto }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">
+      Ainda não há pagamentos registados para as tuas frações.
+    </p>
+  {% endif %}
+
+  {% if comprovativos_pendentes or documentos_partilhados %}
+    <h2>Documentos</h2>
+    <ul class="lista-conversa">
+      {% if comprovativos_pendentes %}
+        <li>
+          {{ comprovativos_pendentes }} comprovativo(s) à espera de confirmação do
+          administrador — <a href="{{ url_for('documentos.comprovativos') }}">ver comprovativos</a>
+        </li>
+      {% endif %}
+      {% if documentos_partilhados %}
+        <li>
+          {{ documentos_partilhados }} documento(s) partilhado(s) contigo —
+          <a href="{{ url_for('documentos.documentos_meus') }}">ver documentos</a>
+        </li>
+      {% endif %}
+    </ul>
+  {% endif %}
+
+  <p class="acoes">
+    <a class="botao secundario" href="{{ url_for('portal.minhas_fracoes') }}">Ver minhas frações</a>
+  </p>
+{% else %}
+  <p class="vazio">
+    Ainda não estás associado a nenhuma fração. Pede ao administrador para te
+    associar; até lá não há cobranças nem pagamentos a mostrar.
+  </p>
+{% endif %}
+{% endblock %}

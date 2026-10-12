@@ -1,0 +1,15 @@
+# Ambiente virtual
+.venv/
+venv/
+
+# Base de dados, anexos e segredos locais
+instance/
+backups/
+*.db
+*.db-wal
+*.db-shm
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Documento n.º {{ documento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>{{ documento.titulo or documento.resumo or documento.nome_original }}</h1>
+
+<div class="cartoes">
+  <div class="cartao ficha">
+    <p class="rotulo">Categoria</p>
+    <p>
+      {{ documento.categoria }}
+      {% if documento.ata_numero %} · ata n.º {{ documento.ata_numero }}{% endif %}
+      {% if documento.ata_data_texto %} · reunião em {{ documento.ata_data_texto }}{% endif %}
+    </p>
+    <p class="rotulo">Data do documento</p>
+    <p>{{ documento.data_documento_texto or '—' }}</p>
+    {% if documento.descricao %}
+      <p class="rotulo">Descrição</p>
+      <p>{{ documento.descricao }}</p>
+    {% endif %}
+    <p class="rotulo">Origem</p>
+    <p>{{ documento.origem_texto }}
+      {% if documento.gmail_mensagem_id %} · mensagem Gmail {{ documento.gmail_mensagem_id }}{% endif %}
+    </p>
+    <p class="rotulo">Ficheiro</p>
+    <p>{{ documento.nome_original }} · {{ documento.mime }} · {{ documento.tamanho_texto }}</p>
+    {% if not documento.inline %}
+      <p class="ajuda">Este formato não se pré-visualiza aqui: usa 「Descarregar」.</p>
+    {% endif %}
+    <p class="rotulo">Guardado</p>
+    <p>{{ documento.criado_em_texto }}{% if documento.criado_por %} por {{ documento.criado_por }}{% endif %}</p>
+    <p class="rotulo">Estado</p>
+    <p>
+      {{ documento.decisao }}
+      {% if documento.decisao_motivo %} — {{ documento.decisao_motivo }}{% endif %}
+      {% if documento.decidido_em_texto %} ({{ documento.decidido_em_texto }}){% endif %}
+      {% if documento.arquivado %} · arquivado{% endif %}
+    </p>
+    {% if documento.tratado_texto %}
+      <p class="rotulo">Tratado</p>
+      <p>{{ documento.tratado_texto }} — nota da aplicação, não é movimento financeiro.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="acoes">
+  <a class="botao secundario" href="{{ url_for('documentos.documento_descarregar', documento_id=documento.id) }}">Descarregar</a>
+  {% if eh_admin %}
+    <a class="botao secundario" href="{{ url_for('documentos.documento_editar', documento_id=documento.id) }}">Editar metadados</a>
+    <a class="botao" href="{{ url_for('payments.add_payment') }}?doc={{ documento.id }}">Registar pagamento</a>
+    <a class="botao" href="{{ url_for('despesas.new_expense') }}?doc={{ documento.id }}">Registar despesa</a>
+    <form method="post" action="{{ url_for('ia.analisar', documento_id=documento.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="botao secundario">Analisar com IA</button>
+    </form>
+    {% if not documento.tratado_em %}
+      <form method="post" action="{{ url_for('documentos.documento_tratado', documento_id=documento.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="botao texto">Marcar como tratado</button>
+      </form>
+    {% endif %}
+    {% if documento.arquivado %}
+      <form method="post" action="{{ url_for('documentos.documento_repor', documento_id=documento.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="botao texto">Repor na lista</button>
+      </form>
+    {% else %}
+      <form method="post" action="{{ url_for('documentos.documento_arquivar', documento_id=documento.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="botao texto">Arquivar</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</div>
+
+{% if versoes | length > 1 %}
+  <section aria-label="Versões do documento">
+    <h2>Versões</h2>
+    <ul>
+      {% for versao in versoes %}
+        <li>
+          <a href="{{ url_for('documentos.documento_ver', documento_id=versao.id) }}">v{{ versao.versao }}</a>
+          — {{ versao.nome_original }} · {{ versao.criado_em_texto }}
+          {% if versao.atual %}<span class="etiqueta ok">atual</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="nota">As versões anteriores conservam-se sempre: nada foi substituído.</p>
+  </section>
+{% endif %}
+
+{% if sugestao %}
+  <section aria-label="Sugestão da IA">
+    <h2>Sugestão da IA (editável — nada foi criado)</h2>
+    {% if sugestao.sugestao %}
+      {% set s = sugestao.sugestao %}
+      <table>
+        <tr><th scope="row">Tipo</th><td>{{ s.get('tipo', '') }}</td></tr>
+        <tr><th scope="row">Resumo</th><td>{{ s.get('resumo', '') }}</td></tr>
+        <tr><th scope="row">Valor</th><td>{{ s.get('valor', '') }}</td></tr>
+        <tr><th scope="row">Data</th><td>{{ s.get('data', '') }}</td></tr>
+        <tr><th scope="row">Entidade</th><td>{{ s.get('entidade', '') }}</td></tr>
+        <tr><th scope="row">Referência</th><td>{{ s.get('referencia', '') }}</td></tr>
+      </table>
+    {% else %}
+      <pre class="corpo-email">{{ sugestao.resumo_resposta }}</pre>
+      <p class="nota">{{ sugestao.nota }}</p>
+    {% endif %}
+    <p class="nota">
+      A sugestão não cria movimentos: usa os botões 「Registar pagamento」 ou
+      「Registar despesa」 e confirma tu mesmo os valores.
+    </p>
+  </section>
+{% endif %}
+
+{% if documento.inline %}
+  <section aria-label="Pré-visualização do documento">
+    <h2>Documento</h2>
+    {% if documento.mime == 'application/pdf' %}
+      <iframe class="pre-visualizacao" title="PDF do documento"
+              src="{{ url_for('documentos.documento_descarregar', documento_id=documento.id) }}"></iframe>
+    {% elif documento.mime in ('image/png', 'image/jpeg') %}
+      <img class="pre-visualizacao" alt="Imagem do documento"
+           src="{{ url_for('documentos.documento_descarregar', documento_id=documento.id) }}">
+    {% else %}
+      <p class="nota">Texto simples: <a
+        href="{{ url_for('documentos.documento_descarregar', documento_id=documento.id) }}">abrir no navegador</a>.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section aria-label="Ligações a registos">
+  <h2>Associado a registos</h2>
+  {% if ligacoes %}
+    <ul>
+      {% for ligacao in ligacoes %}
+        <li>{{ ligacao.alvo_texto }} n.º {{ ligacao.alvo_id }} — {{ ligacao.criado_em }}
+          {% if ligacao.criado_por %} por {{ ligacao.criado_por }}{% endif %}
+          {% if ligacao.notas %} · {{ ligacao.notas }}{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="vazio">Este documento ainda não está associado a nenhum registo.</p>
+  {% endif %}
+
+  {% if eh_admin %}
+    <form method="post" action="{{ url_for('documentos.documento_associar', documento_id=documento.id) }}" class="formulario tabela-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="alvo">Tipo de registo
+        <select id="alvo" name="alvo">
+          <option value="pagamento">Pagamento de condómino</option>
+          <option value="pagamento_despesa">Pagamento de despesa</option>
+          <option value="despesa">Despesa</option>
+          <option value="fracao">Fração</option>
+        </select>
+      </label>
+      <label for="alvo_id">Número do registo
+        <input id="alvo_id" name="alvo_id" inputmode="numeric" required>
+      </label>
+      <label for="notas-ligacao">Nota (opcional)
+        <input id="notas-ligacao" name="notas" autocomplete="off" maxlength="300">
+      </label>
+      <button type="submit">Associar</button>
+    </form>
+    <p class="nota">Associar é só um rasto: não cria nem altera movimentos.</p>
+  {% endif %}
+
+  {% if duplicados %}
+    <p class="aviso-config">
+      Possíveis duplicados: {{ duplicados | length }} registo(s) com referência igual à
+      deste documento
+      ({% for d in duplicados %}{{ d.tipo }} n.º {{ d.id }} ({{ d.referencia }}){% if not loop.last %}, {% endif %}{% endfor %}).
+      Confirma antes de registar outra vez.
+    </p>
+  {% endif %}
+</section>
+
+{% if eh_admin %}
+  {% if documento.origem == 'condomino' and documento.decisao == 'pendente' %}
+    <section aria-label="Decisão sobre o comprovativo">
+      <h2>Confirmar ou rejeitar o comprovativo</h2>
+      <form method="post" action="{{ url_for('documentos.documento_decidir', documento_id=documento.id) }}" class="formulario tabela-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="motivo-decisao">Motivo (obrigatório para rejeitar)
+          <input id="motivo-decisao" name="motivo" autocomplete="off" maxlength="300">
+        </label>
+        <button type="submit" name="decisao" value="confirmado" class="botao">Confirmar</button>
+        <button type="submit" name="decisao" value="rejeitado" class="botao secundario">Rejeitar</button>
+      </form>
+      <p class="nota">Confirmar não altera saldos: o pagamento continua a ser registado
+      à parte, com os travões normais.</p>
+    </section>
+  {% endif %}
+
+  <section aria-label="Partilha com condóminos">
+    <h2>Partilhar com condóminos</h2>
+    <form method="post" action="{{ url_for('documentos.documento_partilhar', documento_id=documento.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="linha-caixa">
+        <input type="checkbox" name="todos_condominos" {{ 'checked' if documento.partilha_todos }}>
+        Todos os condóminos
+      </label>
+      {% for fracao in fracoes %}
+        <label class="linha-caixa">
+          <input type="checkbox" name="fracao_{{ fracao.code }}" {{ 'checked' if fracao.partilhada }}>
+          {{ fracao.code }}
+        </label>
+      {% endfor %}
+      <button type="submit" class="botao secundario">Atualizar partilha</button>
+    </form>
+    <p class="nota">Só o que estiver marcado vê este documento — também na visualização
+    e na descarga direta. Emails, extratos e documentos financeiros privados não são
+    partilhados automaticamente.</p>
+  </section>
+
+  <section aria-label="Nova versão">
+    <h2>Nova versão</h2>
+    <p class="nota">
+      Para uma ata ou contrato corrigido: acrescenta aqui o ficheiro novo. A versão
+      anterior conserva-se e esta passa a ser a atual. Nada é substituído
+      silenciosamente.
+    </p>
+    <form method="post" action="{{ url_for('documentos.documento_nova_versao', documento_id=documento.id) }}"
+          class="formulario" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="nova-versao-ficheiro">Ficheiro da nova versão
+        <input id="nova-versao-ficheiro" type="file" name="ficheiro" required
+               accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx">
+        <span class="ajuda">PDF, PNG, JPG, DOCX ou XLSX, até 10 MB. Tem de ser diferente
+          das versões já guardadas.</span>
+      </label>
+      <button type="submit">Guardar nova versão</button>
+    </form>
+  </section>
+{% endif %}
+{% endblock %}

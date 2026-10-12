@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Comprovativos — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Comprovativos</h1>
+
+<p class="nota">
+  Envia comprovativos das <strong>tuas frações</strong> (PDF, PNG ou JPG, até 5 MB).
+  Ficam pendentes de confirmação do administrador e nunca alteram saldos
+  automaticamente: para o dinheiro contar, o administrador regista o pagamento.
+</p>
+
+<form method="post" action="{{ url_for('documentos.comprovativos') }}"
+      enctype="multipart/form-data" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="ficheiro">Ficheiro do comprovativo
+    <input id="ficheiro" type="file" name="ficheiro" accept=".pdf,.png,.jpg,.jpeg" required>
+  </label>
+  <label for="fracao">Fração a que respeita
+    <select id="fracao" name="fracao" required>
+      {% for fracao in fracoes %}
+        <option value="{{ fracao.code }}">{{ fracao.code }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label for="nota">Nota (opcional)
+    <input id="nota" name="nota" autocomplete="off" maxlength="300"
+           placeholder="referência da transferência, mês da quota…">
+  </label>
+  <button type="submit" class="botao">Enviar comprovativo</button>
+</form>
+
+<section aria-label="Comprovativos enviados">
+  <h2>Os teus comprovativos</h2>
+  {% if meus %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Enviado</th>
+            <th scope="col">Ficheiro</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for comprovativo in meus %}
+            <tr>
+              <th scope="row">{{ comprovativo.criado_em }}</th>
+              <td>{{ comprovativo.nome }}</td>
+              <td>
+                {{ comprovativo.decisao }}
+                {% if comprovativo.motivo %} — {{ comprovativo.motivo }}{% endif %}
+              </td>
+              <td><a href="{{ url_for('documentos.documento_ver', documento_id=comprovativo.id) }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">Ainda não enviaste comprovativos.</p>
+  {% endif %}
+</section>
+{% endblock %}

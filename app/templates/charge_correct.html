@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Corrigir cobrança — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Corrigir cobrança de {{ cobranca.code }}</h1>
+
+<div class="cartoes">
+  <div class="cartao ficha">
+    <p class="rotulo">{{ cobranca.rubrica_texto }} · {{ cobranca.period_texto }}</p>
+    <p class="montante">{{ cobranca.amount_texto }}</p>
+    <p class="nota">
+      Liquidado: <strong class="num">{{ cobranca.pago_texto }}</strong>.
+      Em dívida: <strong class="num">{{ cobranca.divida_texto }}</strong>.
+      Vencimento: {{ cobranca.due_texto }}.
+    </p>
+    {% if cobranca.descricao %}
+      <p class="nota">Descrição: {{ cobranca.descricao }}</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if cobranca.pagamentos %}
+  <p class="nota">
+    Já estão afetados a esta cobrança {{ cobranca.pagamentos|length }} pagamento(s), que se
+    mantêm e não são tocados pela correção:
+    {% for pagamento in cobranca.pagamentos %}
+      <a href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">
+        pagamento n.º {{ pagamento.id }} ({{ pagamento.afetado_texto }} afetados,
+        {{ pagamento.data_texto }}{% if pagamento.referencia %}, ref. {{ pagamento.referencia }}{% endif %})</a>{% if not loop.last %}, {% endif %}
+    {% endfor %}.
+  </p>
+{% endif %}
+
+<form method="post" action="{{ url_for('quotas.correct_charge', charge_id=cobranca.id) }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_cobrancas" value="{{ revisao_cobrancas() }}">
+
+  <label for="valor">Novo valor (euros)
+    <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+           value="{{ valores.valor }}" required>
+  </label>
+
+  <label for="vencimento">Novo vencimento (opcional)
+    <input id="vencimento" name="vencimento" autocomplete="off"
+           value="{{ valores.vencimento }}" placeholder="{{ cobranca.due_texto }}">
+  </label>
+
+  <label for="descricao">Descrição apresentada ao condómino
+    <input id="descricao" name="descricao" autocomplete="off" maxlength="{{ LIMITE_DESCRICAO }}"
+           value="{{ valores.descricao }}">
+  </label>
+
+  <label for="motivo">Motivo da correção
+    <textarea id="motivo" name="motivo" rows="3" maxlength="{{ LIMITE_MOTIVO }}"
+              placeholder="A assembleia fixou outro valor; o mês estava errado.">{{ valores.motivo }}</textarea>
+  </label>
+
+  <p class="nota">
+    O motivo fica guardado com os valores anteriores e novos. A fração, a rubrica, o mês e a
+    regra de origem não se alteram: isso seria emitir outra cobrança. Uma cobrança nunca é apagada.
+  </p>
+
+  <label>
+    <input type="checkbox" id="confirmar_efectos" name="confirmar_efectos">
+    Confirmo os efeitos mostrados na pré-visualização.
+  </label>
+
+  <p class="acoes">
+    <button type="submit" name="previsualizar" value="on" class="secundario">Pré-visualizar efeitos</button>
+    {% if efeitos %}
+      <button type="submit" name="confirmar_correcao" value="on">Gravar correção</button>
+    {% endif %}
+  </p>
+</form>
+
+{% if efeitos %}
+  <section aria-label="Efeitos da correção">
+    <h2>Efeitos da correção</h2>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col" class="num">Agora</th>
+            <th scope="col" class="num">Depois</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Valor da cobrança</th>
+            <td class="num">{{ efeitos.valor_antes_texto }}</td>
+            <td class="num">{{ efeitos.valor_depois_texto }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Liquidado (não muda)</th>
+            <td class="num" colspan="2">{{ efeitos.pago_texto }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Em dívida</th>
+            <td class="num">{{ efeitos.divida_antes_texto }}</td>
+            <td class="num">{{ efeitos.divida_depois_texto }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Vencimento</th>
+            <td>{{ efeitos.vencimento_antes_texto }}</td>
+            <td>{{ efeitos.vencimento_depois_texto }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Dívida da fração {{ cobranca.code }}</th>
+            <td class="num">{{ efeitos.fracao_antes_texto }}</td>
+            <td class="num">{{ efeitos.fracao_depois_texto }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Emitido em {{ cobranca.period_texto }}</th>
+            <td class="num">{{ efeitos.mes_antes_texto }}</td>
+            <td class="num">{{ efeitos.mes_depois_texto }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="nota">
+      {% if efeitos.liquidada_depois %}
+        Com esta correção a cobrança fica liquidada: deixa de estar em dívida.
+      {% elif efeitos.divida_mudou %}
+        A dívida desta cobrança passa a {{ efeitos.divida_depois_texto }}.
+      {% else %}
+        A dívida desta cobrança não muda.
+      {% endif %}
+      Os pagamentos e as respetivas ligações conservam-se.
+      Confirma acima para gravar.
+    </p>
+  </section>
+{% endif %}
+
+{% if cobranca.correcoes %}
+  <section aria-label="Histórico de correções">
+    <h2>Correções desta cobrança</h2>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col" class="num">Antes</th>
+            <th scope="col" class="num">Depois</th>
+            <th scope="col">Vencimento</th>
+            <th scope="col">Motivo</th>
+            <th scope="col">Por</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for correcao in cobranca.correcoes %}
+            <tr>
+              <th scope="row">{{ correcao.momento_texto }}</th>
+              <td class="num">{{ correcao.antes_texto }}</td>
+              <td class="num">{{ correcao.depois_texto }}</td>
+              <td>{{ correcao.vencimento_antes }} → {{ correcao.vencimento_depois }}</td>
+              <td>{{ correcao.motivo }}</td>
+              <td>{{ correcao.por }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('quotas.charge_month', period=cobranca.period) }}">
+    Cobranças de {{ cobranca.period_texto }}</a>
+  <a class="botao secundario" href="{{ url_for('payments.fraction_balance', fraction_id=cobranca.fraction_id) }}">
+    Saldo da fração {{ cobranca.code }}</a>
+</p>
+{% endblock %}

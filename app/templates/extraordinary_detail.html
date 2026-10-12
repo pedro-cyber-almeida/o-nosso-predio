@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ quota.descricao }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>{{ quota.descricao }}</h1>
+
+<p class="nota">
+  {{ quota.reparticao_texto }} · {{ quota.total_texto }} · registada em
+  {{ quota.created_texto }}{% if quota.source %} · {{ quota.source }}{% endif %}
+</p>
+
+{% if quota.finalidade %}
+  <p>{{ quota.finalidade }}</p>
+{% endif %}
+
+<section aria-label="Calendário de prestações">
+  <h2>Prestações</h2>
+  <ul>
+    {% for prestacao in quota.prestacoes %}
+      <li>Prestação {{ prestacao.numero }}: vence a {{ prestacao.due_texto }}</li>
+    {% endfor %}
+  </ul>
+  <p class="nota">
+    O calendário de uma quota já emitida não é alterado: o que se corrige são as
+    cobranças, uma a uma, com motivo registado.
+  </p>
+</section>
+
+<section aria-label="Repartição pelas frações">
+  <h2>Repartição e cobranças emitidas</h2>
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Fração</th>
+          <th scope="col" class="num">Quota-parte</th>
+          <th scope="col">Cobranças emitidas</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fracao in quota.fracoes %}
+          <tr>
+            <th scope="row">{{ fracao.code }}</th>
+            <td class="num">{{ fracao.amount_texto }}</td>
+            <td>
+              {% if fracao.cobrancas %}
+                <ul class="lista-inline">
+                  {% for cobranca in fracao.cobrancas %}
+                    <li>
+                      {{ cobranca.period_texto }} — {{ cobranca.amount_texto }},
+                      vence a {{ cobranca.due_texto }}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <span class="nota">nenhuma</span>
+              {% endif %}
+            </td>
+            <td>
+              {% for cobranca in fracao.cobrancas %}
+                <a href="{{ url_for('quotas.correct_charge', charge_id=cobranca.charge_id) }}">Corrigir</a>
+              {% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          <td class="num">{{ quota.total_texto }}</td>
+          <td colspan="2" class="num">{{ quota.emitidas }} cobrança(s)</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+
+{% if quota.emitidas %}
+  <p class="nota">
+    Esta quota já originou cobranças: não pode ser alterada nem eliminada, porque as
+    cobranças conservam o valor, o vencimento e a descrição que tinham quando foram
+    emitidas. Corrige cada cobrança, com motivo.
+  </p>
+{% else %}
+  <form method="post" action="{{ url_for('quotas.delete_extraordinary', quota_id=quota.id) }}"
+        class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+    <label>
+      <input type="checkbox" id="confirmar_eliminar" name="confirmar_eliminar">
+      Confirmo eliminar esta quota: não tem cobranças emitidas.
+    </label>
+    <button type="submit" class="perigoso">Eliminar quota</button>
+  </form>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quotas') }}">Todas as quotas extraordinárias</a>
+  <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quota') }}">Registar outra</a>
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+</p>
+{% endblock %}

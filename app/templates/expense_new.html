@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Registar despesa — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Registar despesa</h1>
+
+<p class="nota">
+  Registar uma despesa não é saída de dinheiro: cria a obrigação, com o valor, a
+  data e a categoria. O dinheiro sai quando registares o pagamento, na página da
+  despesa — total ou em parcelas.
+</p>
+
+{% if not categorias %}
+  <p class="aviso-config">
+    Ainda não há categorias. As categorias são definidas pelo administrador, não
+    pelo código. <a href="{{ url_for('despesas.categories') }}">Criar categorias</a>
+    antes de registar a despesa.
+  </p>
+{% endif %}
+
+{% if documento %}
+  <div class="painel-documento" aria-label="Documento de origem">
+    <p>
+      A registar a partir de: <strong>{{ documento.resumo }}</strong>
+      ({{ documento.origem_texto }}) —
+      <a href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}"
+         target="_blank" rel="noopener">abrir o documento</a>
+      (fica disponível noutra separador enquanto preenches este formulário).
+      O documento fica ligado a esta despesa como rasto; a ligação não altera valores.
+    </p>
+    {% if documento.duplicados %}
+      <p class="erro">
+        Possíveis duplicados: {{ documento.duplicados | length }} registo(s) com a mesma
+        referência ({% for d in documento.duplicados %}{{ d.tipo }} n.º {{ d.id }} ({{ d.referencia }}){% if not loop.last %}, {% endif %}{% endfor %}).
+        Confirma antes de registar outra vez.
+      </p>
+    {% endif %}
+  </div>
+{% endif %}
+
+<form method="post" action="{{ url_for('despesas.new_expense') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+  <input type="hidden" name="form_token" value="{{ form_token }}">
+  {% if documento %}
+    <input type="hidden" name="doc" value="{{ documento.id }}">
+  {% endif %}
+
+  <label for="descricao">Descrição
+    <input id="descricao" name="descricao" autocomplete="off"
+           placeholder="Limpeza do hall" required>
+  </label>
+
+  <label for="fornecedor">Fornecedor (opcional)
+    <input id="fornecedor" name="fornecedor" autocomplete="off" placeholder="Empresa, artesão, …">
+  </label>
+
+  <label for="categoria">Categoria
+    <select id="categoria" name="categoria" required>
+      <option value="">Escolhe a categoria</option>
+      {% for categoria in categorias %}
+        <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="referencia">Referência documental (opcional)
+    <input id="referencia" name="referencia" autocomplete="off"
+           placeholder="nº da fatura, do recibo, …">
+  </label>
+
+  <label for="data">Data da despesa
+    <input id="data" name="data" autocomplete="off" value="{{ data }}" placeholder="10/01/2027" required>
+  </label>
+
+  <label for="vencimento">Vencimento (opcional)
+    <input id="vencimento" name="vencimento" autocomplete="off" placeholder="28/01/2027">
+  </label>
+
+  <label for="valor">Valor (euros)
+    <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+           placeholder="120,00" required>
+  </label>
+
+  <fieldset>
+    <legend>Classificação</legend>
+    <label class="caixa">
+      <input type="radio" name="classificacao" value="ordinario" checked>
+      Ordinário
+    </label>
+    <label class="caixa">
+      <input type="radio" name="classificacao" value="fundo_reserva">
+      Fundo de reserva
+    </label>
+  </fieldset>
+
+  <label for="notas">Notas (opcional)
+    <textarea id="notas" name="notas" rows="3" placeholder="o que há de saber sobre esta despesa"></textarea>
+  </label>
+
+  <p class="nota">
+    Escreve o valor em euros, com vírgula para os cêntimos: 120,00. O ponto separa
+    milhares. Se algum campo estiver errado, edita a despesa: a edição exige motivo
+    e os valores anteriores ficam no histórico.
+  </p>
+
+  <label class="caixa">
+    <input type="checkbox" id="confirmar_despesa" name="confirmar_despesa">
+    Confirmo que esta despesa é real e que o valor, a data e a categoria correspondem
+    ao que está no documento.
+  </label>
+
+  <button type="submit">Registar despesa</button>
+</form>
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('despesas.expenses_list') }}">Voltar às despesas</a>
+</p>
+{% endblock %}

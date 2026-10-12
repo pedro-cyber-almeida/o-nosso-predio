@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Registar pagamento — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Registar pagamento</h1>
+
+<p class="nota">
+  Regista o dinheiro que efetivamente entrou, com a data em que entrou.
+  A distribuição por cobranças é confirmada no passo seguinte: enquanto não for
+  afetada, o valor fica como <strong>crédito da fração</strong> e não liquida
+  automaticamente nenhuma cobrança.
+</p>
+
+{% if documento %}
+  <div class="painel-documento" aria-label="Documento de origem">
+    <p>
+      A registar a partir de: <strong>{{ documento.resumo }}</strong>
+      ({{ documento.origem_texto }}) —
+      <a href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}"
+         target="_blank" rel="noopener">abrir o documento</a>
+      (fica disponível noutra separador enquanto preenches este formulário).
+      O documento fica ligado a este pagamento como rasto; a ligação não altera valores.
+    </p>
+    {% if documento.duplicados %}
+      <p class="erro">
+        Possíveis duplicados: {{ documento.duplicados | length }} registo(s) com a mesma
+        referência ({% for d in documento.duplicados %}{{ d.tipo }} n.º {{ d.id }} ({{ d.referencia }}){% if not loop.last %}, {% endif %}{% endfor %}).
+        Confirma antes de registar outra vez.
+      </p>
+    {% endif %}
+  </div>
+{% endif %}
+
+<form method="post" action="{{ url_for('payments.add_payment') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_pagamentos" value="{{ revisao_pagamentos() }}">
+  <input type="hidden" name="form_token" value="{{ form_token }}">
+  {% if documento %}
+    <input type="hidden" name="doc" value="{{ documento.id }}">
+  {% endif %}
+
+  <label for="fracao">Fração
+    <select id="fracao" name="fracao" required>
+      <option value="">Escolhe a fração</option>
+      {% for fracao in fracoes %}
+        <option value="{{ fracao.id }}">
+          {{ fracao.code }}{% if not fracao.active %} (desativada){% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="valor">Valor recebido (euros)
+    <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+           placeholder="52,00" required>
+  </label>
+
+  <label for="data">Data do pagamento
+    <input id="data" name="data" autocomplete="off" value="{{ data }}" placeholder="15/01/2027" required>
+  </label>
+
+  <label for="meio">Meio de pagamento
+    <select id="meio" name="meio" required>
+      {% for meio in MEIOS %}
+        <option value="{{ meio }}">{{ ROTULOS_MEIO[meio] }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="referencia">Referência do movimento (opcional)
+    <input id="referencia" name="referencia" autocomplete="off"
+           placeholder="nº da transferência, do cheque, etc.">
+  </label>
+
+  <label for="source">Nota (opcional)
+    <input id="source" name="source" autocomplete="off" placeholder="de onde vem esta informação">
+  </label>
+
+  <p class="nota">
+    Escreve o valor em euros, com vírgula para os cêntimos: 52,00. O ponto separa milhares.
+    Se o valor, a data, a fração ou a distribuição estiverem errados, corrige o pagamento
+    no detalhe dele: a correção exige motivo e os valores anteriores ficam no histórico.
+  </p>
+
+  <label>
+    <input type="checkbox" id="confirmar_pagamento" name="confirmar_pagamento">
+    Confirmo que este dinheiro entrou e que o valor e a data correspondem a um comprovativo.
+  </label>
+
+  <button type="submit">Registar pagamento</button>
+</form>
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('payments.payments_list') }}">Voltar aos pagamentos</a>
+</p>
+{% endblock %}

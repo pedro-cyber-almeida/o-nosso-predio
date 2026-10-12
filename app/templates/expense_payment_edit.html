@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Editar pagamento de despesa n.º {{ pagamento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Editar pagamento n.º {{ pagamento.id }} — despesa «{{ despesa.descricao }}»</h1>
+
+<p class="nota">
+  Corrigir um pagamento não cria um segundo movimento: o mesmo pagamento passa a ter
+  os valores corrigidos e o valor em falta da despesa é recalculado. O que estava
+  antes fica guardado no histórico, com a data e o motivo.
+  <strong>O motivo é obrigatório.</strong>
+</p>
+
+<table>
+  <tbody>
+    <tr><th scope="row">Versão guardada</th>
+        <td>{{ format_money(pagamento.amount_cents) }} · {{ format_date(pagamento.paid_on) }} ·
+            {{ ROTULOS_MEIO[pagamento.method] }}</td></tr>
+    <tr><th scope="row">Despesa</th>
+        <td>{{ despesa.amount_texto }} · pago {{ despesa.pago_texto }} · em falta {{ despesa.em_falta_texto }}</td></tr>
+  </tbody>
+</table>
+
+<form method="post" action="{{ url_for('despesas.edit_expense_payment', payment_id=pagamento.id) }}"
+      class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+  <input type="hidden" name="edit_token" value="{{ edit_token }}">
+
+  <label for="valor">Valor pago (euros)
+    <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+           value="{{ valores.valor }}" required>
+  </label>
+
+  <label for="data">Data do pagamento
+    <input id="data" name="data" autocomplete="off" value="{{ valores.data }}" placeholder="15/01/2027" required>
+  </label>
+
+  <label for="meio">Meio de pagamento
+    <select id="meio" name="meio" required>
+      {% for meio in MEIOS %}
+        <option value="{{ meio }}"{% if meio == valores.meio %} selected{% endif %}>
+          {{ ROTULOS_MEIO[meio] }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="referencia">Referência do movimento (opcional)
+    <input id="referencia" name="referencia" autocomplete="off" value="{{ valores.referencia }}">
+  </label>
+
+  <label for="motivo">Motivo da correção (obrigatório)
+    <input id="motivo" name="motivo" autocomplete="off"
+           placeholder="valor errado, data errada, movimento trocado" required>
+  </label>
+
+  {% if efeitos %}
+    <section>
+      <h2>Efeito desta correção</h2>
+      <p class="nota">Nada foi gravado ainda. Isto é o que acontece se confirmares.</p>
+      <table>
+        <tbody>
+          <tr>
+            <th scope="row">Valor do pagamento</th>
+            <td>{{ efeitos.valor_antes_texto }} → <strong>{{ efeitos.valor_depois_texto }}</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Pago da despesa</th>
+            <td>{{ efeitos.pago_antes_texto }} → <strong>{{ efeitos.pago_depois_texto }}</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Em falta</th>
+            <td>{{ efeitos.falta_antes_texto }} →
+                <strong>{{ efeitos.falta_depois_texto }}</strong>
+                {% if efeitos.liquidada_depois %}(passa a paga){% endif %}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+
+  <label class="caixa">
+    <input type="checkbox" id="confirmar_efectos" name="confirmar_efectos">
+    Confirmo os efeitos mostrados na pré-visualização.
+  </label>
+  <label class="caixa">
+    <input type="checkbox" id="confirmar_correcao" name="confirmar_correcao">
+    Confirmo esta correção, com o motivo indicado, e aceito que os valores anteriores
+    fiquem guardados no histórico.
+  </label>
+
+  <p class="acoes">
+    <button type="submit" name="previsualizar" value="on">Pré-visualizar o efeito</button>
+    <button type="submit">Confirmar correção</button>
+  </p>
+</form>
+
+<p class="nota">
+  Um formulário envelhecido ou reenviado não sobrepõe alterações nem duplica efeitos.
+  Para retirar um pagamento por completo, anula-o em baixo: a anulação conserva o
+  registo e reabre o valor em falta.
+</p>
+
+<section>
+  <h2>Anular este pagamento</h2>
+  <form method="post" action="{{ url_for('despesas.cancel_expense_payment', payment_id=pagamento.id) }}"
+        class="formulario tabela-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+    <label for="motivo_anular">Motivo da anulação (obrigatório)
+      <input id="motivo_anular" name="motivo" autocomplete="off"
+             placeholder="movimento registado por engano, valor trocado, …">
+    </label>
+    <label class="caixa">
+      <input type="checkbox" id="confirmar_anular" name="confirmar_anular">
+      Confirmo a anulação: o registo conserva-se com a data e o motivo, o valor em
+      falta da despesa reabre, e o pagamento deixa de contar. Uma devolução bancária
+      seria um movimento novo, não uma anulação.
+    </label>
+    <button type="submit" class="secundario">Anular pagamento</button>
+  </form>
+</section>
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('despesas.expense_detail', expense_id=despesa.id) }}">
+    Voltar à despesa
+  </a>
+  <a class="botao secundario" href="{{ url_for('despesas.expense_payment_history', payment_id=pagamento.id) }}">
+    Histórico deste pagamento
+  </a>
+</p>
+{% endblock %}

@@ -1,0 +1,3 @@
+# Fins de linha: guardar LF no repositório, independentemente do sistema.
+* text=auto eol=lf
+*.png binary

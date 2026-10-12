@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Permilagens — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Repartição de permilagens</h1>
+
+<p>
+  Total atual: <strong>{{ total_permilagem_texto }}</strong>
+  {% if total_consistente %}
+    <span class="ok">(completa)</span>
+  {% else %}
+    <span class="aviso-config">(incompleta: falta {{ total_em_falta_texto }} — nada é
+    preenchido automaticamente)</span>
+  {% endif %}
+</p>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_fracoes" value="{{ revisao_fracoes() }}">
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Fração</th>
+        <th scope="col">Permilagem</th>
+        <th scope="col">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in fractions %}
+        <tr>
+          <th scope="row">{{ f.code }}</th>
+          <td>
+            <label class="sr" for="perm_{{ f.id }}">Permilagem da fração {{ f.code }}</label>
+            <input id="perm_{{ f.id }}" name="permilagem_{{ f.id }}" value="{{ f.permilagem }}"
+                   required autocomplete="off">
+          </td>
+          <td>{{ "ativa" if f.active else "desativada" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="nota">
+    A soma nunca pode exceder 1000,00. Durante a configuração do condomínio pode ser
+    inferior — o que falta é mostrado acima e nunca é preenchido automaticamente.
+    As permilagens não são redistribuídas automaticamente: o que muda é o que escreveste aqui.
+  </p>
+
+  <label>
+    <input type="checkbox" name="confirmar_reparticao">
+    Confirmo a redistribuição de permilagens e que conheço a razão da alteração.
+  </label>
+
+  <label for="motivo">Motivo da alteração
+    <input id="motivo" name="motivo" autocomplete="off"
+           placeholder="Ex.: retificação aprovada em assembleia">
+  </label>
+
+  <button type="submit">Guardar permilagens</button>
+  <a class="botao secundario" href="{{ url_for('fractions.fractions_list') }}">Cancelar</a>
+</form>
+{% endblock %}

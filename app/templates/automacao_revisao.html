@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Revisão bancária — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Revisão bancária</h1>
+
+<p class="nota">
+  Movimentos propostos ou reconhecidos com dúvidas. Cada linha mostra o documento
+  de origem e os campos extraídos (com a página e linha de onde foram lidos).
+  Podes <strong>corrigir</strong> data e valor, <strong>confirmar</strong> o registo
+  ou <strong>ignorar</strong>. Confirmar usa as mesmas validações dos formulários
+  manuais e nunca afeta o dinheiro a cobranças.
+</p>
+
+{% if movimentos %}
+  {% for m in movimentos %}
+    <section class="cartao" aria-label="Movimento {{ m.id }}">
+      <h2>
+        {% if m.documento %}
+          <a href="{{ url_for('documentos.documento_ver', documento_id=m.documento.id) }}">
+            {{ m.documento.nome_original }}</a>
+        {% else %}
+          (documento indisponível)
+        {% endif %}
+        — {{ "proposta" if m.estado == 'proposta' else "revisão" }}
+      </h2>
+      <p>
+        <span class="rotulo">Extraído:</span>
+        data {{ m.campos.data or "(sem leitura)" }} ·
+        valor {{ m.valor_texto or "(sem leitura)" }} ·
+        sentido {{ {'recebido': 'recebido', 'enviado': 'enviado', 'comissao': 'comissão'}.get(m.sentido, m.sentido) }} ·
+        referência {{ m.campos.referencia or "(sem leitura)" }} ·
+        extrator {{ m.extrator }} v{{ m.versao_extrator }}
+      </p>
+      {% if m.nota or m.nota_extracao %}
+        <p><span class="rotulo">Motivo da revisão:</span> {{ m.nota or m.nota_extracao }}</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('automacao.confirmar_movimento', movimento_id=m.id) }}"
+            class="formulario">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Data (aaaa-mm-dd)
+          <input type="text" name="data" size="12" value="{{ m.campos.data or '' }}">
+        </label>
+        <label>Valor (ex.: 123,45)
+          <input type="text" name="valor" size="10" value="{{ m.valor_texto or '' }}">
+        </label>
+        <label>Sentido
+          <select name="sentido">
+            {% for opcao, rotulo in (('recebido', 'recebido (entrada)'), ('enviado', 'enviado (saída)'), ('comissao', 'comissão bancária')) %}
+              <option value="{{ opcao }}" {{ 'selected' if m.sentido == opcao }}>{{ rotulo }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        {% if m.sentido == 'recebido' %}
+          <label>Fração (deixa «correspondência» para usar as regras)
+            <select name="fracao_id">
+              <option value="">(correspondência)</option>
+              {% for fracao in fracoes %}
+                <option value="{{ fracao.id }}">{{ fracao.code }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        {% elif m.sentido == 'enviado' %}
+          <label>Despesa (deixa «correspondência» para usar as regras)
+            <select name="despesa_id">
+              <option value="">(correspondência)</option>
+              {% for despesa in despesas_pendentes %}
+                <option value="{{ despesa.id }}">
+                  {{ despesa.descricao }} — {{ despesa.fornecedor }} (falta {{ format_money(despesa.falta) }})
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+        {% endif %}
+        <button type="submit" class="botao">Confirmar registo</button>
+      </form>
+      <form method="post" action="{{ url_for('automacao.ignorar_movimento', movimento_id=m.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="botao-secundario">Ignorar</button>
+      </form>
+    </section>
+  {% endfor %}
+{% else %}
+  <p class="vazio">Não há movimentos à espera de revisão.</p>
+{% endif %}
+
+{% if extracoes %}
+  <section aria-label="Documentos por analisar">
+    <h2>Documentos sem leitura automática</h2>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Documento</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Motivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in extracoes %}
+            <tr>
+              <th scope="row">
+                <a href="{{ url_for('documentos.documento_ver', documento_id=e.documento_id) }}">
+                  {{ e.nome_original }}</a>
+              </th>
+              <td>{{ "falha" if e.estado == 'falha' else "formato por reconhecer" }}</td>
+              <td>{{ e.nota }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+
+{% if recusadas %}
+  <section aria-label="Emails sem autenticação">
+    <h2>Emails sem autenticação aprovada</h2>
+    <p class="nota">
+      O Gmail não confirmou SPF/DKIM destes emails; não geram registos automáticos.
+    </p>
+    <ul>
+      {% for mensagem in recusadas %}
+        <li>{{ mensagem.processado_em }} — {{ mensagem.nota }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+{% endblock %}

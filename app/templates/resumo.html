@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}Painel — O Nosso Prédio{% endblock %}
+{% block content %}
+
+{#- Cabeçalho: título, período e as duas ações que acontecem todos os dias.
+    As restantes ações vivem nos destinos próprios da navegação. -#}
+<div class="cabecalho-pagina">
+  <div class="cabecalho-titulo">
+    <h1>Visão geral</h1>
+    <p class="nota">
+      Fluxos de <strong>{{ periodo_ano }}</strong>; saldos acumulados até
+      <strong>{{ data_limite_texto }}</strong> — fim do ano, ou hoje se o ano
+      ainda não terminou.
+    </p>
+  </div>
+  <form method="get" action="{{ url_for('dashboard.painel') }}" class="seletor-periodo">
+    <label for="ano">Ano
+      <select id="ano" name="ano">
+        {% for ano in periodo_anos %}
+          <option value="{{ ano }}"{% if ano == periodo_ano %} selected{% endif %}>{{ ano }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="botao secundario pequeno">Ver</button>
+  </form>
+  <div class="acoes">
+    <a class="botao" href="{{ url_for('payments.add_payment') }}">Registar pagamento</a>
+    <a class="botao" href="{{ url_for('despesas.new_expense') }}">Registar despesa</a>
+  </div>
+</div>
+
+{% if passos_configuracao %}
+  <section class="cartao" aria-label="Primeiros passos">
+    <h2>Primeiros passos</h2>
+    <p class="nota">
+      O condomínio ainda não está totalmente configurado. A aplicação não inventa
+      valores: falta tratares destes passos, pela ordem que faz sentido.
+    </p>
+    <ol>
+      {% for titulo, texto, destino in passos_configuracao %}
+        <li><a href="{{ destino }}">{{ titulo }}</a> — {{ texto }}</li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endif %}
+
+{#- Configuração em falta: um único aviso compacto; os campos aparecem ao expandir. -#}
+{% set falhas = namespace(itens=[]) %}
+{% if not settings.get("saldo_inicial_caixa_centimos") %}
+  {% set falhas.itens = falhas.itens + ["saldo inicial de caixa"] %}
+{% endif %}
+{% if not settings.get("saldo_inicial_fundo_centimos") %}
+  {% set falhas.itens = falhas.itens + ["saldo inicial do fundo"] %}
+{% endif %}
+{% if not settings.get("quota_dia_vencimento") %}
+  {% set falhas.itens = falhas.itens + ["dia de vencimento das quotas"] %}
+{% endif %}
+{% if not settings.get("gestao_data_inicio") %}
+  {% set falhas.itens = falhas.itens + ["data de início da gestão"] %}
+{% endif %}
+{% if falhas.itens %}
+  <div class="aviso-config" role="note">
+    <div class="aviso-linha">
+      <strong>Configuração financeira incompleta</strong>
+      <a class="botao pequeno" href="{{ url_for('config.config') }}">Completar</a>
+    </div>
+    <details>
+      <summary>Campos em falta</summary>
+      <p>
+        {{ falhas.itens | join(" · ") }}.
+        <a href="{{ url_for('config.config') }}">Confirmar em Configuração</a>
+        — enquanto não estiverem confirmados não são apresentados como valores do prédio.
+      </p>
+    </details>
+  </div>
+{% endif %}
+
+<section aria-label="Indicadores financeiros">
+  <div class="grelha-indicadores">
+    <div class="cartao ficha">
+      <p class="rotulo">Recebimentos em {{ periodo_ano }}</p>
+      {% if tem_pagamentos %}
+        <p class="montante">{{ recebido_ano_texto }}</p>
+        <p class="contexto">
+          {{ pagamentos_registados }} pagamento(s) válido(s){% if pagamentos_anulados %},
+          {{ pagamentos_anulados }} anulado(s){% endif %} · até {{ data_limite_texto }}:
+          <strong class="num">{{ recebido_ate_texto }}</strong>
+        </p>
+      {% else %}
+        <p class="montante sem-valor">—</p>
+        <p class="vazio">
+          Sem recebimentos registados. <a href="{{ url_for('payments.add_payment') }}">Registar
+          o dinheiro que entrou</a>.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="cartao ficha">
+      <p class="rotulo">Despesas pagas em {{ periodo_ano }}</p>
+      {% if tem_pagamentos_despesa %}
+        <p class="montante">{{ pagamentos_despesa_ano_texto }}</p>
+        <p class="contexto">
+          {{ pagamentos_despesa_n }} pagamento(s) válido(s){% if pagamentos_despesa_anulados %},
+          {{ pagamentos_despesa_anulados }} anulado(s){% endif %} · até {{ data_limite_texto }}:
+          <strong class="num">{{ pagamentos_despesa_ate_texto }}</strong>
+        </p>
+      {% else %}
+        <p class="montante sem-valor">—</p>
+        <p class="vazio">
+          Sem pagamentos de despesas registados. <a href="{{ url_for('despesas.new_expense') }}">Registar
+          uma despesa</a>.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="cartao ficha">
+      <p class="rotulo">Despesas por pagar até {{ data_limite_texto }}</p>
+      {% if tem_despesas %}
+        <p class="montante">{{ despesas_em_falta_texto }}</p>
+        <p class="contexto">Em falta nas despesas registadas, menos os pagamentos válidos.
+          <a href="{{ url_for('despesas.expenses_list') }}">Ver despesas</a>.</p>
+      {% else %}
+        <p class="montante sem-valor">—</p>
+        <p class="vazio">
+          Sem despesas registadas. <a href="{{ url_for('despesas.new_expense') }}">Registar
+          uma despesa</a>.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="cartao ficha">
+      <p class="rotulo">Quotas por receber até {{ data_limite_texto }}</p>
+      {% if cobrancas_emitidas %}
+        <p class="montante">{{ divida_texto }}</p>
+        <p class="contexto">
+          {{ cobrancas_emitidas }} cobrança(s) emitida(s) · Emitido não é recebido.
+          {% if tem_divida_vencida %}Vencida: <strong class="num erro">{{ vencida_texto }}</strong>.{% endif %}
+        </p>
+      {% else %}
+        <p class="montante sem-valor">—</p>
+        {% if cobrancas_futuras_n %}
+          <p class="vazio">
+            Nenhuma cobrança vencível até {{ data_limite_texto }}:
+            {{ cobrancas_futuras_n }} cobrança(s) emitida(s) para meses futuros —
+            <strong class="num">{{ total_ordinario_futuro_texto }}</strong> ordinária,
+            <strong class="num">{{ total_reforco_futuro_texto }}</strong> reforço{% if tem_extraordinario_futuro %},
+            <strong class="num">{{ total_extraordinario_futuro_texto }}</strong> extraordinária{% endif %}.
+            Emitido não é recebido.
+          </p>
+        {% else %}
+          <p class="vazio">
+            Nenhuma cobrança gerada ainda. <a href="{{ url_for('quotas.generate') }}">Gerar um mês</a>.
+          </p>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="cartao ficha">
+      <p class="rotulo">Crédito disponível</p>
+      {% if tem_movimentos %}
+        <p class="montante">{{ credito_texto }}</p>
+        <p class="contexto">Recebido até {{ data_limite_texto }} e ainda não afetado a cobranças.</p>
+      {% else %}
+        <p class="montante sem-valor">—</p>
+        <p class="vazio">Sem movimentos registados.</p>
+      {% endif %}
+    </div>
+
+    <div class="cartao ficha">
+      <p class="rotulo">Liquidez registada até {{ data_limite_texto }}</p>
+      {% if liquidez_por_confirmar %}
+        <p class="montante sem-valor">—</p>
+        <p class="contexto">
+          saldo inicial por confirmar.
+          {% if tem_movimentos_conhecidos %}
+            Movimentos registados: <strong class="num">{{ variacao_conhecida_texto }}</strong>
+          {% endif %}
+        </p>
+      {% else %}
+        <p class="montante">{{ liquidez_texto }}</p>
+        <p class="contexto">Saldo inicial confirmado, mais recebimentos, menos pagamentos de despesas.</p>
+      {% endif %}
+    </div>
+
+    {% if tem_fundo_dados %}
+      <div class="cartao ficha">
+        <p class="rotulo">Fundo de reserva até {{ data_limite_texto }}</p>
+        <p class="montante">{{ fundo_texto }}</p>
+        <p class="contexto">
+          Reforços (<strong class="num">{{ fundo_reforcos_texto }}</strong>) menos despesas
+          pagas pelo fundo (<strong class="num">{{ fundo_despesas_texto }}</strong>).
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  <details class="calc">
+    <summary>Como são calculados</summary>
+    <ul>
+      <li>Fluxos são os movimentos com data no ano; saldos são acumulados até
+        {{ data_limite_texto }}.</li>
+      <li>Recebimentos: pagamentos válidos. Um pagamento anulado conserva o registo
+        mas deixa de contar.</li>
+      <li>Despesas pagas: só pagamentos contam como saída; registar uma despesa não
+        tira dinheiro da caixa.</li>
+      <li>Quotas por receber: cobranças emitidas menos o liquidado. Emitido não é recebido.</li>
+      <li>Liquidez: saldo inicial confirmado mais recebimentos menos pagamentos de
+        despesas. Não é saldo bancário reconciliado.</li>
+      <li>Fundo de reserva: afetação do dinheiro dentro da caixa; não é somado outra vez à liquidez.</li>
+    </ul>
+  </details>
+</section>
+
+<section aria-label="Movimentos por mês">
+  <h2>Movimentos por mês</h2>
+  {% if tem_recebimentos %}
+    <p class="nota">Total de {{ periodo_ano }}:
+      <strong class="num">{{ total_ano_texto }}</strong> recebidos{% if tem_pagamentos_despesa_ano %},
+      <strong class="num">{{ total_ano_pagamentos_texto }}</strong> pagos em despesas{% endif %}.</p>
+    {% set titulo_grafico = "Recebimentos e pagamentos de despesas por mês em " ~ periodo_ano
+                            if tem_pagamentos_despesa_ano
+                            else "Recebimentos por mês em " ~ periodo_ano %}
+    {% set maior = namespace(cents=-1, texto="") %}
+    {% for mes in meses_movimentos %}
+      {% if mes.rec_cents > maior.cents %}
+        {% set maior.cents = mes.rec_cents %}{% set maior.texto = mes.rec_texto %}
+      {% endif %}
+    {% endfor %}
+    <div class="grafico">
+      <svg viewBox="0 0 640 214" role="img"
+           aria-label="{{ titulo_grafico }}: total {{ total_ano_texto }} recebidos">
+        {#- Área do gráfico: base em y=170, topo em y=24 (146 px = barra mais alta). -#}
+        <line class="grelha" x1="24" y1="133.5" x2="624" y2="133.5"></line>
+        <line class="grelha" x1="24" y1="97" x2="624" y2="97"></line>
+        <line class="grelha" x1="24" y1="60.5" x2="624" y2="60.5"></line>
+        <line class="grelha" x1="24" y1="24" x2="624" y2="24"></line>
+        <line class="eixo" x1="24" y1="170" x2="624" y2="170"></line>
+        {% for mes in meses_movimentos %}
+          {% set x = 26 + loop.index0 * 50 %}
+          {% if mes.rec_cents > 0 or mes.pag_cents > 0 %}
+            {% if tem_pagamentos_despesa_ano %}
+              {% if mes.rec_cents > 0 %}
+                <rect class="barra" x="{{ x }}" y="{{ 170 - (mes.rec_altura * 1.46) }}"
+                      width="16" height="{{ mes.rec_altura * 1.46 }}" rx="4">
+                  <title>{{ mes.nome }} — recebimentos: {{ mes.rec_texto }}</title>
+                </rect>
+                <text class="rotulo-valor par" x="{{ x + 8 }}" y="{{ 164 - (mes.rec_altura * 1.46) }}"
+                      text-anchor="middle">{{ mes.rec_texto | replace(" EUR", "") }}</text>
+              {% endif %}
+              {% if mes.pag_cents > 0 %}
+                <rect class="barra-pagamento" x="{{ x + 18 }}" y="{{ 170 - (mes.pag_altura * 1.46) }}"
+                      width="16" height="{{ mes.pag_altura * 1.46 }}" rx="4">
+                  <title>{{ mes.nome }} — pagamentos de despesas: {{ mes.pag_texto }}</title>
+                </rect>
+                <text class="rotulo-valor par" x="{{ x + 26 }}" y="{{ 164 - (mes.pag_altura * 1.46) }}"
+                      text-anchor="middle">{{ mes.pag_texto | replace(" EUR", "") }}</text>
+              {% endif %}
+            {% else %}
+              <rect class="barra" x="{{ x }}" y="{{ 170 - (mes.rec_altura * 1.46) }}"
+                    width="34" height="{{ mes.rec_altura * 1.46 }}" rx="6">
+                <title>{{ mes.nome }}: {{ mes.rec_texto }}</title>
+              </rect>
+              <text class="rotulo-valor" x="{{ x + 17 }}" y="{{ 164 - (mes.rec_altura * 1.46) }}"
+                    text-anchor="middle">{{ mes.rec_texto | replace(" EUR", "") }}</text>
+            {% endif %}
+          {% else %}
+            <rect class="barra-vazia" x="{{ x }}" y="168" width="34" height="2" rx="1">
+              <title>{{ mes.nome }}: sem movimentos</title>
+            </rect>
+          {% endif %}
+          <text class="rotulo-mes" x="{{ x + 17 }}" y="188" text-anchor="middle">{{ mes.nome | truncate(3, true, "") }}</text>
+        {% endfor %}
+      </svg>
+      <p class="nota">
+        {{ titulo_grafico }}. A barra de recebimentos mais alta vale {{ maior.texto }}.
+        Passa o cursor sobre as barras para ver o valor de cada mês.
+      </p>
+      {% if tem_pagamentos_despesa_ano %}
+        <p class="legenda-grafico">
+          <span class="legenda"><span class="marca barra-recebimento"></span> Recebimentos</span>
+          <span class="legenda"><span class="marca barra-pagamento-legenda"></span> Pagamentos de despesas</span>
+        </p>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="vazio">
+      Sem movimentos registados: o gráfico aparece quando houver recebimentos ou
+      pagamentos de despesas válidos.
+    </p>
+  {% endif %}
+</section>
+
+{% if categorias_pagas %}
+  <section aria-label="Despesas pagas por categoria">
+    <h2>Despesas pagas por categoria em {{ periodo_ano }}</h2>
+    <div class="categorias-pagas">
+      {% for categoria in categorias_pagas %}
+        <div class="linha-categoria">
+          <span class="nome-categoria">{{ categoria.nome }}</span>
+          <span class="barra-horizontal" style="width: {{ categoria.largura_pct }}%"></span>
+          <span class="num">{{ categoria.texto }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="nota">
+      Base: pagamentos válidos de despesas com data em {{ periodo_ano }}. Despesas
+      registadas e não pagas não aparecem aqui — ainda não saíram da caixa.
+    </p>
+  </section>
+{% endif %}
+
+{% if liquidez_evolucao %}
+  <section aria-label="Evolução da liquidez registada">
+    <h2>Evolução da liquidez registada</h2>
+    <div class="grafico">
+      <svg viewBox="0 0 640 214" role="img"
+           aria-label="Evolução da liquidez registada em {{ periodo_ano }}, a partir do saldo inicial confirmado">
+        <line class="grelha" x1="24" y1="133.5" x2="624" y2="133.5"></line>
+        <line class="grelha" x1="24" y1="97" x2="624" y2="97"></line>
+        <line class="grelha" x1="24" y1="60.5" x2="624" y2="60.5"></line>
+        <line class="grelha" x1="24" y1="24" x2="624" y2="24"></line>
+        <line class="eixo" x1="24" y1="170" x2="624" y2="170"></line>
+        {% set pontos = [] %}
+        {% for ponto in liquidez_evolucao %}
+          {% set x = 43 + (ponto.mes[-2:] | int - 1) * 50 %}
+          {% set y = 170 - (ponto.altura_pct * 1.46) %}
+          {% set pontos = pontos + [x ~ "," ~ y] %}
+        {% endfor %}
+        {% if pontos | length >= 2 %}
+          <polyline class="linha-liquidez" points="{{ pontos | join(' ') }}"></polyline>
+        {% endif %}
+        {% for ponto in liquidez_evolucao %}
+          {% set x = 43 + (ponto.mes[-2:] | int - 1) * 50 %}
+          {% set y = 170 - (ponto.altura_pct * 1.46) %}
+          <circle class="ponto-liquidez" cx="{{ x }}" cy="{{ y }}" r="4">
+            <title>{{ ponto.nome }}: {{ ponto.texto }}</title>
+          </circle>
+          <text class="rotulo-mes" x="{{ x }}" y="188" text-anchor="middle">{{ ponto.nome | truncate(3, true, "") }}</text>
+        {% endfor %}
+      </svg>
+      <p class="nota">
+        Liquidez registada no fim de cada mês: saldo inicial confirmado mais recebimentos
+        menos pagamentos de despesas, até {{ data_limite_texto }}. É a variação registada,
+        não um saldo bancário reconciliado.
+      </p>
+    </div>
+  </section>
+{% endif %}
+
+{% if pagamentos_recentes %}
+  <section aria-label="Pagamentos recentes">
+    <h2>Pagamentos recentes</h2>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col">Fração</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col">Meio</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pagamento in pagamentos_recentes %}
+            <tr>
+              <th scope="row" class="num">{{ pagamento.data_texto }}</th>
+              <td>{{ pagamento.code }}</td>
+              <td class="num">
+                {{ pagamento.valor_texto }}
+                {% if pagamento.anulado %}<span class="erro">(anulado)</span>{% endif %}
+              </td>
+              <td>{{ pagamento.meio_texto }}</td>
+              <td><a href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+
+<section aria-label="Estado do prédio">
+  <h2>Estado do prédio</h2>
+  <div class="cartoes">
+    <div class="cartao">
+      <p class="rotulo">Frações</p>
+      {% if fractions %}
+        <p>{{ fractions|length }} frações registadas. Permilagem total: <strong>{{ total_permilagem_texto }}</strong></p>
+        {% if total_consistente %}
+          <p class="ok">Soma completa: 1000,00.</p>
+        {% else %}
+          <p class="nota">Soma incompleta: falta {{ total_em_falta_texto }}.
+            <a href="{{ url_for('fractions.permilagens') }}">Completar permilagens</a>.</p>
+        {% endif %}
+      {% else %}
+        <p class="nota">Ainda não há frações registadas.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

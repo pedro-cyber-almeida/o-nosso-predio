@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Categorias de despesas — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Categorias de despesas</h1>
+
+<p class="nota">
+  As categorias são definidas por ti, não pelo código: cria as que o prédio usa
+  (limpeza, seguros, manutenção, …). Uma categoria usada por despesas registadas
+  não é renomeada nem apagada — as despesas conservam o rótulo com que foram
+  registadas; para mudar um rótulo, cria a categoria certa e reafeta cada despesa
+  na edição justificada dela.
+</p>
+
+<form method="post" action="{{ url_for('despesas.categories') }}" class="formulario tabela-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+  <input type="hidden" name="acao" value="criar">
+  <label for="nome_criar">Nova categoria
+    <input id="nome_criar" name="nome" autocomplete="off" placeholder="Limpeza" required>
+  </label>
+  <button type="submit">Criar categoria</button>
+</form>
+
+{% if categorias %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Categoria</th>
+          <th scope="col" class="num">Despesas que a usam</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for categoria in categorias %}
+          <tr>
+            <th scope="row">{{ categoria.nome }}</th>
+            <td class="num">{{ categoria.uso }}</td>
+            <td>
+              {% if categoria.uso == 0 %}
+                <form method="post" action="{{ url_for('despesas.categories') }}" class="acoes inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+                  <input type="hidden" name="acao" value="renomear">
+                  <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                  <label class="sr" for="nome_{{ categoria.id }}">Novo nome para {{ categoria.nome }}</label>
+                  <input id="nome_{{ categoria.id }}" name="nome" autocomplete="off"
+                         value="{{ categoria.nome }}" maxlength="{{ LIMITE_CATEGORIA }}">
+                  <button type="submit" class="botao texto pequeno">Renomear</button>
+                </form>
+                <form method="post" action="{{ url_for('despesas.categories') }}" class="acoes inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+                  <input type="hidden" name="acao" value="eliminar">
+                  <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                  <input type="hidden" name="nome" value="{{ categoria.nome }}">
+                  <button type="submit" class="botao texto pequeno">Eliminar</button>
+                </form>
+              {% else %}
+                <span class="nota">em uso: não é renomeada nem apagada</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">Ainda não há categorias: cria a primeira em cima.</p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('despesas.expenses_list') }}">Voltar às despesas</a>
+</p>
+{% endblock %}

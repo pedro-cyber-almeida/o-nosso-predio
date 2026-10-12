@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Alterar palavra-passe — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Alterar a minha palavra-passe</h1>
+<p class="nota">
+  Precisas da palavra-passe atual. Se a perdeste, pede ao administrador para a
+  definir de novo em Utilizadores.
+</p>
+<form method="post" action="{{ url_for('auth.alterar_palavra_passe') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="palavra_passe_atual">Palavra-passe atual
+    <input id="palavra_passe_atual" name="palavra_passe_atual" type="password"
+           autocomplete="current-password" required>
+  </label>
+  <label for="palavra_passe_nova">Nova palavra-passe (mínimo 10 caracteres)
+    <input id="palavra_passe_nova" name="palavra_passe_nova" type="password"
+           autocomplete="new-password" required>
+  </label>
+  <label for="confirmar_palavra_passe">Confirmar nova palavra-passe
+    <input id="confirmar_palavra_passe" name="confirmar_palavra_passe" type="password"
+           autocomplete="new-password" required>
+  </label>
+  <p class="acoes">
+    <button type="submit">Alterar palavra-passe</button>
+    <a class="botao secundario" href="{{ url_for('dashboard.painel') }}">Cancelar</a>
+  </p>
+</form>
+{% endblock %}

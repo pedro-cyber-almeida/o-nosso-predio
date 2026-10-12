@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Primeiro administrador — O Nosso Prédio{% endblock %}
+{% block content %}
+<div class="entrada">
+  <div class="cartao">
+    <h1>Criar o primeiro administrador</h1>
+    <p class="nota">
+      Ainda não existe nenhum utilizador nesta base. Esta página existe só
+      enquanto assim for e não há palavra-passe predefinida: escreve tu a
+      palavra-passe, daqui a diante só o administrador cria acessos.
+    </p>
+    <form method="post" action="{{ url_for('auth.setup') }}" class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="utilizador">Nome de utilizador
+        <input id="utilizador" name="utilizador" autocomplete="username"
+               value="{{ valores.utilizador }}" required autofocus>
+      </label>
+      <label for="nome">Nome visível (opcional)
+        <input id="nome" name="nome" autocomplete="name" value="{{ valores.nome }}">
+      </label>
+      <label for="palavra_passe">Palavra-passe (mínimo 10 caracteres)
+        <input id="palavra_passe" name="palavra_passe" type="password"
+               autocomplete="new-password" required>
+      </label>
+      <label for="confirmar_palavra_passe">Confirmar palavra-passe
+        <input id="confirmar_palavra_passe" name="confirmar_palavra_passe" type="password"
+               autocomplete="new-password" required>
+      </label>
+      <p><button type="submit">Criar administrador e entrar</button></p>
+    </form>
+  </div>
+</div>
+{% endblock %}

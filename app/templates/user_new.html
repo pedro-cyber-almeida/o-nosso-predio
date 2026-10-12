@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Novo utilizador — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Novo utilizador</h1>
+<p class="nota">
+  Não há registo público: este formulário é o único caminho para criar acessos.
+  A palavra-passe fica guardada como hash e não é mostrada a ninguém.
+</p>
+
+<form method="post" action="{{ url_for('auth.new_user') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+  <label for="utilizador">Nome de utilizador
+    <input id="utilizador" name="utilizador" autocomplete="off"
+           value="{{ valores.utilizador }}" required>
+  </label>
+
+  <label for="nome">Nome visível (opcional)
+    <input id="nome" name="nome" autocomplete="off" value="{{ valores.nome }}">
+  </label>
+
+  <label for="papel">Papel
+    <select id="papel" name="papel" required>
+      <option value="condomino"{% if valores.papel == 'condomino' %} selected{% endif %}>Condómino</option>
+      <option value="administrador"{% if valores.papel == 'administrador' %} selected{% endif %}>Administrador</option>
+    </select>
+  </label>
+
+  <label for="palavra_passe">Palavra-passe (mínimo 10 caracteres)
+    <input id="palavra_passe" name="palavra_passe" type="password"
+           autocomplete="new-password" required>
+  </label>
+  <label for="confirmar_palavra_passe">Confirmar palavra-passe
+    <input id="confirmar_palavra_passe" name="confirmar_palavra_passe" type="password"
+           autocomplete="new-password" required>
+  </label>
+
+  <fieldset>
+    <legend>Frações associadas</legend>
+    <p class="nota">
+      O condómino só vê as frações marcadas aqui. Um utilizador pode ter várias
+      frações e uma fração pode ter vários utilizadores.
+    </p>
+    {% for fracao in fracoes %}
+      <label class="caixa">
+        <input type="checkbox" name="fracao_{{ fracao.id }}"
+               {% if fracao.id in associadas %}checked{% endif %}>
+        {{ fracao.code }}{% if not fracao.active %} (desativada){% endif %}
+      </label>
+    {% endfor %}
+  </fieldset>
+
+  <p class="acoes">
+    <button type="submit">Criar utilizador</button>
+    <a class="botao secundario" href="{{ url_for('auth.users_list') }}">Cancelar</a>
+  </p>
+</form>
+{% endblock %}

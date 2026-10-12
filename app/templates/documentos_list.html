@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Documentos — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Documentos</h1>
+
+<p class="nota">
+  Biblioteca do condomínio: uploads teus, emails e anexos guardados e comprovativos
+  enviados pelos condóminos. Os uploads começam privados — partilhas quando quiseres.
+  Associar um documento a um registo não cria nem altera movimentos financeiros.
+</p>
+
+<section class="acoes-rapidas" aria-label="Ações rápidas">
+  <a class="botao" href="{{ url_for('documentos.documentos_carregar') }}">Carregar documentos</a>
+</section>
+
+{% if comprovativos_pendentes %}
+  <p class="aviso-config">
+    {{ comprovativos_pendentes | length }} comprovativo(s) de condómino pendente(s)
+    de confirmação: abre cada um e confirma ou rejeita com motivo. Nenhum altera
+    saldos sozinho.
+  </p>
+{% endif %}
+
+<form method="get" class="filtros" aria-label="Pesquisa e filtros">
+  <label>
+    <span>Pesquisar</span>
+    <input type="search" name="q" value="{{ filtros.q }}" placeholder="título ou nome do ficheiro">
+  </label>
+  <label>
+    <span>Categoria</span>
+    <select name="categoria">
+      <option value="">Todas</option>
+      {% for categoria in categorias %}
+        <option value="{{ categoria }}"{% if filtros.categoria == categoria %} selected{% endif %}>{{ categoria }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>Data do documento, de</span>
+    <input type="date" name="data_de" value="{{ filtros.data_de }}">
+  </label>
+  <label>
+    <span>até</span>
+    <input type="date" name="data_ate" value="{{ filtros.data_ate }}">
+  </label>
+  <label class="caixa">
+    <input type="checkbox" name="arquivados" value="1"{% if filtros.arquivados %} checked{% endif %}>
+    incluir arquivados
+  </label>
+  <button type="submit" class="botao secundario">Filtrar</button>
+  {% if filtros.q or filtros.categoria or filtros.data_de or filtros.data_ate or filtros.arquivados %}
+    <a href="{{ url_for('documentos.documentos_lista') }}">Limpar filtros</a>
+  {% endif %}
+</form>
+
+{% if documentos %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Categoria</th>
+          <th scope="col">Documento</th>
+          <th scope="col">Data</th>
+          <th scope="col">Origem</th>
+          <th scope="col">Partilha</th>
+          <th scope="col" class="num">Tamanho</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for documento in documentos %}
+          <tr>
+            <td>{{ documento.categoria }}</td>
+            <th scope="row">
+              <a href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}">{{ documento.titulo }}</a>
+              {% if documento.versao_texto %}<span class="etiqueta">{{ documento.versao_texto }}</span>{% endif %}
+              {% if documento.arquivado %}<span class="etiqueta">arquivado</span>{% endif %}
+              {% if documento.decisao == 'pendente' %}<span class="etiqueta">pendente</span>{% endif %}
+              {% if documento.decisao == 'rejeitado' %}<span class="etiqueta">rejeitado</span>{% endif %}
+              {% if documento.decisao == 'confirmado' %}<span class="etiqueta ok">confirmado</span>{% endif %}
+              <span class="sub">
+                {{ documento.nome_original }}
+                {% if documento.ligacoes %} · {{ documento.ligacoes }} ligação(ões){% endif %}
+              </span>
+            </th>
+            <td>{{ documento.data }}</td>
+            <td>{{ documento.origem }}</td>
+            <td>{{ documento.partilha }}</td>
+            <td class="num">{{ documento.tamanho_texto }}</td>
+            <td class="acoes-linha">
+              <a href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}">Abrir</a>
+              <a href="{{ url_for('documentos.documento_descarregar', documento_id=documento.id) }}">Descarregar</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não há documentos guardados. Usa 「Carregar documentos」; numa mensagem
+    de Email podes 「Guardar como documento」; os condóminos enviam comprovativos
+    em 「Comprovativos」.
+  </p>
+{% endif %}
+{% if arquivados_total %}
+  <p class="nota">
+    {{ arquivados_total }} documento(s) arquivado(s){% if not filtros.arquivados %} —
+    marca 「incluir arquivados」 para os ver.{% endif %}
+  </p>
+{% endif %}
+{% endblock %}

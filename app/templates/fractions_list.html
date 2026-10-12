@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Frações — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Frações</h1>
+
+{% if fractions %}
+<p>
+  Permilagem total: <strong>{{ total_permilagem_texto }}</strong>
+  {% if total_consistente %}
+    <span class="ok">(completa)</span>
+  {% else %}
+    <span class="aviso-config">(incompleta: falta {{ total_em_falta_texto }} — nada é
+    preenchido automaticamente)</span>
+  {% endif %}
+</p>
+{% endif %}
+
+{% if fractions %}
+<table>
+  <thead>
+    <tr>
+      <th scope="col">Fração</th>
+      <th scope="col">Permilagem</th>
+      <th scope="col">Responsáveis atuais</th>
+      <th scope="col">Estado</th>
+      <th scope="col">Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in fractions %}
+      <tr>
+        <th scope="row">{{ f.code }}</th>
+        <td>{{ f.permilagem_texto }}</td>
+        <td>
+          {% if f.current_owners %}
+            {% for o in f.current_owners %}
+              {{ o.name }} ({{ ROLE_LABELS[o.role] }})<br>
+            {% endfor %}
+          {% else %}
+            <span class="nota">sem responsável registado</span>
+          {% endif %}
+        </td>
+        <td>{{ "ativa" if f.active else "desativada" }}</td>
+        <td><a href="{{ url_for('fractions.fraction_detail', fraction_id=f.id) }}">Abrir</a></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="vazio">
+    Ainda não há frações. Cria a primeira fração e escreve a sua permilagem.
+    Podes acrescentar as outras progressivamente: enquanto a soma não chegar a
+    1000,00, a página mostra quanto falta — a aplicação nunca inventa valores.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('fractions.permilagens') }}">Repartir permilagens</a>
+  <a class="botao" href="{{ url_for('fractions.new_fraction') }}">Nova fração</a>
+</p>
+{% endblock %}

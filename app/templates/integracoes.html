@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% from "base.html" import icone %}
+{% block title %}Integrações — O Nosso Prédio{% endblock %}
+{% block content %}
+
+<h1>Integrações</h1>
+
+<nav class="abas" aria-label="Secções das definições">
+  <a class="aba" href="{{ url_for('config.config') }}">Geral</a>
+  <a class="aba ativa" href="{{ url_for('integracoes.integracoes') }}">Integrações</a>
+</nav>
+
+<p class="nota">
+  Duas ligações externas, ambas opcionais: o email do condomínio (só de leitura) e
+  a análise de documentos por IA. Os segredos ficam guardados neste servidor e não
+  são mostrados outra vez no navegador.
+</p>
+
+<div class="cartoes cartoes-integracoes">
+  {# -------------------------------------------------------------- Gmail --- #}
+  <section class="cartao cartao-integracao" aria-label="Gmail do condomínio">
+    <header class="cartao-cabeca">
+      <span class="cartao-icone">{{ icone("email") }}</span>
+      <div>
+        <h2>Gmail</h2>
+        <p class="nota">Email do condomínio, consultado só de leitura e apenas quando pedes.</p>
+      </div>
+      {% if estado_gmail.ligado %}
+        <span class="etiqueta ok">Ligado</span>
+      {% elif estado_gmail.credenciais == 'guardadas' %}
+        <span class="etiqueta">Credenciais guardadas</span>
+      {% else %}
+        <span class="etiqueta">Por configurar</span>
+      {% endif %}
+    </header>
+
+    {% if estado_gmail.ligado %}
+      <p class="nota">
+        Conta: <strong>{{ estado_gmail.conta or 'ligada' }}</strong>
+        {%- if estado_gmail.ultimo_teste %} · último teste {{ estado_gmail.ultimo_teste }}{% endif %}
+      </p>
+    {% endif %}
+
+    <details class="calc">
+      <summary>Como configurar</summary>
+      <ol class="passos">
+        <li>Na consola do Google Cloud: APIs e serviços → <strong>Ativar a API do
+          Gmail</strong> → Credenciais → Criar ID de cliente OAuth →
+          <strong>Aplicação web</strong>.</li>
+        <li>Regista como endereço de redirecionamento autorizado exatamente o valor
+          no campo abaixo (acompanha a porta que estiveres a usar).</li>
+        <li>Cola aqui o ID de cliente e o segredo, guarda, e usa 「Ligar conta
+          Gmail」. A chave de API do Gmail não é necessária: usamos só OAuth.</li>
+      </ol>
+    </details>
+
+    <label class="campo-leitura" for="uri-redirecionamento">Endereço de redirecionamento
+      <span class="campo-leitura-linha">
+        <input id="uri-redirecionamento" value="{{ estado_gmail.redirecionamento }}" readonly
+               aria-describedby="uri-ajuda">
+        <button type="button" class="botao secundario pequeno" id="copiar-uri">Copiar</button>
+      </span>
+      <span class="ajuda" id="uri-ajuda">É este o endereço a registar no Google.</span>
+    </label>
+
+    <form method="post" action="{{ url_for('integracoes.integracoes') }}" class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="revisao_integracoes" value="{{ revisao_integracoes() }}">
+      {% if estado_ia.ativa %}
+        {#- Guardar o Gmail não desliga a IA: o estado atual viaja espelhado. -#}
+        <input type="hidden" name="ia_ativa" value="on">
+      {% endif %}
+
+      <div class="grelha-campos">
+        <label for="gmail_client_id">ID de cliente OAuth
+          <input id="gmail_client_id" name="gmail_client_id" autocomplete="off"
+                 placeholder="{{ 'guardado — deixa em branco para manter' if guardado.get('gmail_client_id') else 'ID do cliente criado no Google Cloud' }}">
+          <span class="ajuda">Em branco mantém o valor guardado.</span>
+        </label>
+        <label for="gmail_client_secret">Segredo do cliente
+          <input id="gmail_client_secret" name="gmail_client_secret" type="password" autocomplete="off"
+                 placeholder="{{ 'guardado — deixa em branco para manter' if guardado.get('gmail_client_secret') else 'segredo do Google Cloud' }}">
+          <span class="ajuda">Nunca volta a ser mostrado depois de guardado.</span>
+        </label>
+      </div>
+
+      <button type="submit" class="botao">Guardar Gmail</button>
+
+      <details class="zona-secundaria">
+        <summary>Remover credenciais guardadas</summary>
+        <label class="linha-caixa">
+          <input type="checkbox" name="apagar_gmail_credenciais">
+          Apagar o ID de cliente e o segredo deste servidor
+        </label>
+        <p class="nota">Usa isto só se deixares de usar esta conta OAuth.</p>
+      </details>
+    </form>
+
+    <div class="acoes cartao-acoes">
+      <form method="post" action="{{ url_for('email.oauth_ligar') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="botao secundario">Ligar conta Gmail</button>
+      </form>
+      {% if estado_gmail.ligado %}
+        <form method="post" action="{{ url_for('email.testar_ligacao') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="botao secundario">Testar ligação</button>
+        </form>
+        <form method="post" action="{{ url_for('email.desligar') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="botao texto">Desligar conta</button>
+        </form>
+      {% endif %}
+    </div>
+    <p class="nota">
+      「Ligar」 abre o consentimento do Google e regressa aqui. 「Desligar」 remove os
+      tokens deste servidor e conserva as credenciais para voltar a ligar.
+    </p>
+  </section>
+
+  {# --------------------------------------------------------------- IA --- #}
+  <section class="cartao cartao-integracao" aria-label="Análise com IA">
+    <header class="cartao-cabeca">
+      <span class="cartao-icone">{{ icone("ia") }}</span>
+      <div>
+        <h2>Análise com IA</h2>
+        <p class="nota">Sugestões de leitura dos documentos. Só acontece quando clicares
+          「Analisar com IA」 e nunca cria movimentos financeiros.</p>
+      </div>
+      {% if estado_ia.ativa %}
+        <span class="etiqueta ok">Ativa</span>
+      {% elif estado_ia.configurada %}
+        <span class="etiqueta">Desativada</span>
+      {% else %}
+        <span class="etiqueta">Por configurar</span>
+      {% endif %}
+    </header>
+
+    <form method="post" action="{{ url_for('integracoes.integracoes') }}" class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="revisao_integracoes" value="{{ revisao_integracoes() }}">
+
+      <label class="linha-caixa">
+        <input type="checkbox" name="ia_ativa" {{ 'checked' if estado_ia.ativa }}>
+        Ativar a análise opcional por IA
+      </label>
+
+      <div class="grelha-campos">
+        <label for="ia_base_url">Endereço base
+          <input id="ia_base_url" name="ia_base_url" autocomplete="off"
+                 value="{{ estado_ia.base_url }}" placeholder="http://servidor-local:porta/v1">
+          <span class="ajuda">Compatível com OpenAI (termina em /v1).</span>
+        </label>
+        <label for="ia_modelo">Modelo
+          <input id="ia_modelo" name="ia_modelo" autocomplete="off"
+                 value="{{ estado_ia.modelo }}" placeholder="nome do modelo no teu servidor">
+        </label>
+        <label for="ia_chave_api">Chave da API
+          <input id="ia_chave_api" name="ia_chave_api" type="password" autocomplete="off"
+                 placeholder="{{ 'guardada — deixa em branco para manter' if guardado.get('ia_chave_api') else 'opcional em servidores locais' }}">
+          <span class="ajuda">Em branco mantém o valor guardado.</span>
+        </label>
+        <label for="ia_timeout_segundos">Tempo limite (s)
+          <input id="ia_timeout_segundos" name="ia_timeout_segundos" inputmode="numeric"
+                 value="{{ estado_ia.timeout }}">
+          <span class="ajuda">Entre 1 e 120 segundos.</span>
+        </label>
+      </div>
+
+      <button type="submit" class="botao">Guardar IA</button>
+
+      <details class="zona-secundaria">
+        <summary>Remover chave guardada</summary>
+        <label class="linha-caixa">
+          <input type="checkbox" name="apagar_ia_chave">
+          Apagar a chave de API guardada
+        </label>
+      </details>
+    </form>
+
+    <p class="nota">
+      A análise envia só o texto do documento selecionado, com limite de tamanho e
+      uma única tentativa. Sem IA configurada, tudo funciona manualmente.
+    </p>
+  </section>
+</div>
+
+<script>
+  (function () {
+    var campo = document.getElementById("uri-redirecionamento");
+    var botao = document.getElementById("copiar-uri");
+    if (!campo || !botao) return;
+    botao.addEventListener("click", function () {
+      function fallback() {
+        campo.focus();
+        campo.select();
+        botao.textContent = "Selecionado — Ctrl+C";
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(campo.value).then(
+          function () { botao.textContent = "Copiado"; },
+          fallback
+        );
+      } else {
+        fallback();
+      }
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Regras de quotas — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Regras de quotas</h1>
+
+<p class="nota">
+  Uma regra vale para uma fração e uma rubrica, e cobre meses inteiros: começa no
+  dia 1 de um mês e termina no último dia de outro.
+  <strong>Quota ordinária</strong> e <strong>reforço do fundo de reserva</strong> são
+  rubricas separadas: o reforço não se soma à quota ordinária no registo.
+  Não pode haver duas regras da mesma fração e rubrica a valer no mesmo mês.
+</p>
+
+<section>
+  <h2>Regras registadas</h2>
+  {% if regras %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col">Rubrica</th>
+            <th scope="col" class="num">Valor mensal</th>
+            <th scope="col">Vigência</th>
+            <th scope="col" class="num">Cobranças emitidas</th>
+            <th scope="col">Fonte</th>
+            <th scope="col">Alterar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in regras %}
+            <tr>
+              <th scope="row">
+                {{ r.code }}
+                {% if not r.fraction_active %}<span class="nota">(fração desativada)</span>{% endif %}
+              </th>
+              <td>{{ r.rubrica_texto }}</td>
+              <td class="num">{{ r.amount_texto }}</td>
+              <td>{{ r.valid_from }} — {{ r.valid_to }}</td>
+              <td class="num">{{ r.emitidas }}</td>
+              <td>{{ r.source or "—" }}</td>
+              <td>
+                <form method="post" action="{{ url_for('quotas.change_validity', rule_id=r.id) }}"
+                      class="acoes">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+                  <label class="sr" for="fim_{{ r.id }}">Fim da vigência da regra {{ r.id }}</label>
+                  <input id="fim_{{ r.id }}" name="fim" value="{{ r.valid_to_edicao }}"
+                         placeholder="fim (MM/AAAA)" autocomplete="off" size="12">
+                  <button type="submit" class="secundario botao">Guardar vigência</button>
+                </form>
+                <form method="post" action="{{ url_for('quotas.change_rule_value', rule_id=r.id) }}"
+                      class="acoes">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+                  <label class="sr" for="valor_{{ r.id }}">Novo valor mensal da regra {{ r.id }}</label>
+                  <input id="valor_{{ r.id }}" name="valor" size="10" autocomplete="off"
+                         inputmode="decimal" placeholder="novo valor">
+                  <label class="sr" for="motivo_{{ r.id }}">Motivo da mudança de valor da regra {{ r.id }}</label>
+                  <input id="motivo_{{ r.id }}" name="motivo" size="18" autocomplete="off"
+                         placeholder="motivo">
+                  <label for="confirmar_valor_{{ r.id }}">Confirmo</label>
+                  <input type="checkbox" id="confirmar_valor_{{ r.id }}" name="confirmar_valor">
+                  <button type="submit" class="secundario botao">Guardar valor</button>
+                </form>
+                <form method="post" action="{{ url_for('quotas.delete_rule', rule_id=r.id) }}"
+                      class="acoes">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+                  <input type="checkbox" id="confirmar_{{ r.id }}" name="confirmar_eliminar">
+                  <label for="confirmar_{{ r.id }}">Confirmo eliminar</label>
+                  <button type="submit" class="perigoso">Eliminar regra</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="nota">
+      Deixar o fim vazio deixa a regra em aberto. Alterar a vigência ou o valor não altera
+      as cobranças já emitidas: elas guardam o valor, o mês e a regra de que vieram, e a
+      mudança só vale para as emissões futuras. Mudar o valor exige motivo, que fica
+      registado com os valores anteriores. Uma regra com cobranças emitidas não pode ser
+      eliminada.
+    </p>
+  {% else %}
+    <p class="vazio">
+      Ainda não há regras registadas. Regista uma regra abaixo: sem regra com
+      vigência confirmada não há cobranças a gerar.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Registar uma regra</h2>
+  <form method="post" action="{{ url_for('quotas.add_rule') }}" class="formulario">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+
+    <fieldset>
+      <legend>Frações</legend>
+      {% for f in fracoes %}
+        <label>
+          <input type="checkbox" name="fracao_{{ f.id }}"
+                 {% if f.active %}checked{% endif %}>
+          {{ f.code }}{% if not f.active %} (desativada){% endif %}
+        </label>
+      {% endfor %}
+    </fieldset>
+
+    <label for="rubrica">Rubrica
+      <select id="rubrica" name="rubrica">
+        {% for rubrica in RUBRICAS %}
+          <option value="{{ rubrica }}">{{ ROTULOS_RUBRICA[rubrica] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label for="valor">Valor mensal por fração (euros)
+      <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+             placeholder="47,00" required>
+    </label>
+
+    <label for="inicio">Início da vigência (mês)
+      <input id="inicio" name="inicio" autocomplete="off" placeholder="01/2027" required>
+    </label>
+
+    <label for="fim_nova">Fim da vigência (mês, opcional)
+      <input id="fim_nova" name="fim" autocomplete="off" placeholder="deixa vazio se em aberto">
+    </label>
+
+    <label for="source">Fonte da decisão (opcional)
+      <input id="source" name="source" autocomplete="off" placeholder="Ata n.º 23, de 12/11/2026">
+    </label>
+
+    <p class="nota">
+      Escreve em euros, com vírgula para os cêntimos: 47,00. O ponto separa milhares.
+      Uma quota que não se repete todos os meses — uma obra, um seguro novo, um reforço
+      pontual — não é uma regra: regista-a como
+      <a href="{{ url_for('quotas.extraordinary_quota') }}">quota extraordinária</a>.
+    </p>
+
+    <label>
+      <input type="checkbox" id="confirmar_vigencia" name="confirmar_vigencia">
+      Confirmo que este valor e este período correspondem a uma decisão registada.
+    </label>
+
+    <button type="submit">Registar regra</button>
+  </form>
+</section>
+
+<section>
+  <h2>Quotas extraordinárias</h2>
+  {% if extraordinarias %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Descrição</th>
+            <th scope="col" class="num">Montante total</th>
+            <th scope="col">Repartição</th>
+            <th scope="col" class="num">Cobranças emitidas</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for q in extraordinarias %}
+            <tr>
+              <th scope="row">{{ q.descricao }}</th>
+              <td class="num">{{ format_money(q.total_cents) }}</td>
+              <td>{{ q.regras }} fração(ões)</td>
+              <td class="num">
+                {% if q.cobrancas %}{{ q.cobrancas }}{% else %}<span class="nota">nenhuma</span>{% endif %}
+              </td>
+              <td><a href="{{ url_for('quotas.extraordinary_detail', quota_id=q.id) }}">Abrir</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">
+      Ainda não há quotas extraordinárias. Regista uma quando houver uma decisão
+      registada para cobrar fora das quotas mensais.
+    </p>
+  {% endif %}
+  <p class="acoes">
+    <a class="botao" href="{{ url_for('quotas.extraordinary_quota') }}">Registar quota extraordinária</a>
+    <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quotas') }}">Ver todas</a>
+  </p>
+</section>
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('quotas.generate') }}">Pré-visualizar um mês</a>
+  <a class="botao secundario" href="{{ url_for('quotas.charges') }}">Cobranças geradas</a>
+</p>
+{% endblock %}

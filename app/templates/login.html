@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Entrar — O Nosso Prédio{% endblock %}
+{% block content %}
+<div class="entrada">
+  <div class="cartao">
+    <h1>Entrar</h1>
+    <p class="nota">
+      Acesso reservado à administração e aos condóminos deste prédio.
+      Não há registo público: um acesso é criado pelo administrador.
+    </p>
+    <form method="post" action="{{ url_for('auth.login') }}" class="formulario">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="utilizador">Nome de utilizador
+        <input id="utilizador" name="utilizador" autocomplete="username"
+               value="{{ utilizador_pedido }}" required autofocus>
+      </label>
+      <label for="palavra_passe">Palavra-passe
+        <input id="palavra_passe" name="palavra_passe" type="password"
+               autocomplete="current-password" required>
+      </label>
+      <p><button type="submit">Entrar</button></p>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Os meus documentos — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Os meus documentos</h1>
+
+<p class="nota">
+  O que o administrador partilhou contigo
+  {% if fracoes %}(frações {{ fracoes | map(attribute='code') | join(', ') }}){% endif %}
+  e os comprovativos que enviaste. Nada é partilhado automaticamente: só aparece
+  aqui o que foi explicitamente disponibilizado às tuas frações.
+</p>
+
+{% if documentos %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Documento</th>
+          <th scope="col">Categoria</th>
+          <th scope="col">Data</th>
+          <th scope="col">Estado</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for documento in documentos %}
+          <tr>
+            <th scope="row">
+              {{ documento.nome }}
+              {% if documento.arquivado %}<span class="etiqueta">arquivado</span>{% endif %}
+            </th>
+            <td>{{ documento.categoria }}</td>
+            <td>{{ documento.data }}</td>
+            <td>
+              {% if documento.decisao == 'pendente' %}
+                enviado — à espera de confirmação do administrador
+              {% elif documento.decisao == 'confirmado' %}
+                confirmado{% if documento.motivo %} — {{ documento.motivo }}{% endif %}
+              {% elif documento.decisao == 'rejeitado' %}
+                rejeitado{% if documento.motivo %} — {{ documento.motivo }}{% endif %}
+              {% else %}
+                partilhado
+              {% endif %}
+            </td>
+            <td><a href="{{ url_for('documentos.documento_ver', documento_id=documento.id) }}">Abrir</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não tens documentos. O administrador pode partilhar documentos contigo;
+    e podes enviar comprovativos em 「Comprovativos」.
+  </p>
+{% endif %}
+{% endblock %}

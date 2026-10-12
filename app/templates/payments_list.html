@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Pagamentos e saldos — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Pagamentos e saldos</h1>
+
+<p class="nota">
+  Recebimentos são dinheiro que entrou. Dívida é o que foi emitido e ainda não foi
+  liquidado por um pagamento válido. Crédito é o que entrou e ainda não foi afetado a
+  nenhuma cobrança. Um pagamento anulado conserva o registo, mas deixa de contar.
+</p>
+
+<section>
+  <h2>Saldos por fração</h2>
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Fração</th>
+        <th scope="col">Emitido</th>
+        <th scope="col">Recebido</th>
+        <th scope="col">Afetado</th>
+        <th scope="col">Crédito por afetar</th>
+        <th scope="col">Dívida</th>
+        <th scope="col">Dívida vencida</th>
+        <th scope="col">Afeto ao fundo</th>
+        <th scope="col">Histórico</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for saldo in saldos %}
+        <tr>
+          <th scope="row">{{ saldo.code }}{% if not saldo.active %} (desativada){% endif %}</th>
+          <td>{{ saldo.cobrado_texto }}</td>
+          <td>{{ saldo.recebido_texto }}</td>
+          <td>{{ saldo.afetado_texto }}</td>
+          <td>{{ saldo.credito_texto }}</td>
+          <td>{{ saldo.divida_texto }}</td>
+          <td>
+            {% if saldo.vencida_cents %}
+              {{ saldo.vencida_texto }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td>{{ saldo.ao_fundo_texto }}</td>
+          <td><a href="{{ url_for('payments.fraction_balance', fraction_id=saldo.id) }}">Abrir</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th scope="row">Prédio</th>
+        <td>{{ globais.cobrado_texto }}</td>
+        <td>{{ globais.recebido_texto }}</td>
+        <td>{{ globais.afetado_texto }}</td>
+        <td>{{ globais.credito_texto }}</td>
+        <td>{{ globais.divida_texto }}</td>
+        <td>
+          {% if globais.vencida_cents %}
+            {{ globais.vencida_texto }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
+        <td>{{ globais.ao_fundo_texto }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <p class="nota">
+    A dívida vencida só existe para cobranças com data de vencimento confirmada
+    ({{ quota_dia_vencimento }}). Sem vencimento definido, nenhuma cobrança é
+    apresentada como vencida.
+    O valor "Afeto ao fundo" é uma parte do que foi recebido, não uma receita a somar:
+    o fundo é uma afetação do dinheiro, não uma conta à parte.
+    Crédito por afetar não é automaticamente do fundo.
+  </p>
+
+  {% if globais.anulado_cents %}
+    <p class="nota">
+      Anulados: {{ globais.anulado_texto }} em pagamentos anulados, que não contam em
+      nenhum dos totais acima.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Saldo de caixa</h2>
+  {% if saldo_inicial_confirmado %}
+    <p>
+      Saldo inicial confirmado: <strong>{{ saldo_caixa_texto }}</strong>.
+      Recebimentos válidos: <strong>{{ globais.recebido_texto }}</strong>.
+    </p>
+    <p class="nota">
+      As despesas pagas entram na conta no painel do administrador e em Despesas.
+      Mesmo com as despesas descontadas, este valor não é uma conta bancária reconciliada.
+    </p>
+  {% else %}
+    <p class="erro">
+      Saldo inicial por confirmar.
+      Em Configuração, confirma o saldo inicial de caixa e o saldo inicial do fundo.
+    </p>
+    <p class="nota">
+      Enquanto o saldo inicial não estiver confirmado, mostra-se apenas o que se sabe:
+      {{ globais.recebido_texto }} recebidos e {{ globais.afetado_texto }} afetados a
+      cobranças desde o início desta gestão. Não há um saldo total definitivo.
+      As saídas de dinheiro são as despesas pagas, registadas pelo administrador em Despesas.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Pagamentos registados</h2>
+  {% if pagamentos %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Data</th>
+          <th scope="col">Fração</th>
+          <th scope="col">Valor</th>
+          <th scope="col">Meio</th>
+          <th scope="col">Referência</th>
+          <th scope="col">Afetado</th>
+          <th scope="col">Crédito</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pagamento in pagamentos %}
+          <tr>
+            <th scope="row">{{ pagamento.paid_on }}</th>
+            <td>{{ pagamento.code }}</td>
+            <td>{{ format_money(pagamento.amount_cents) }}</td>
+            <td>{{ pagamento.method_texto }}</td>
+            <td>{{ pagamento.reference or "—" }}</td>
+            <td>
+              {% if pagamento.anulado %}
+                {{ format_money(pagamento.afetado_cents) }}
+                <br><span class="nota">sem efeito</span>
+              {% else %}
+                {{ format_money(pagamento.afetado_cents) }}
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.anulado %}
+                —
+              {% else %}
+                {{ format_money(pagamento.credito_cents) }}
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.anulado %}
+                anulado em {{ pagamento.cancelled_at }}
+                <br><span class="nota">{{ pagamento.cancellation_reason }}</span>
+              {% else %}
+                válido
+              {% endif %}
+              {% if pagamento.correcoes %}
+                <br><span class="nota">corrigido {{ pagamento.correcoes }} vez(es) em
+                {{ pagamento.edited_at_texto }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">Abrir</a>
+              {% if not pagamento.anulado %}
+                · <a href="{{ url_for('payments.edit_payment', payment_id=pagamento.id) }}">Editar</a>
+              {% endif %}
+              {% if pagamento.correcoes %}
+                · <a href="{{ url_for('payments.payment_history', payment_id=pagamento.id) }}">Correções</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="nota">
+      Os valores apresentados são sempre a versão atual de cada pagamento. Uma correção
+      não cria um segundo registo nem duplica receita: os valores anteriores ficam
+      consultáveis em Correções, com a data e o motivo. Um pagamento anulado não é
+      editado nem reativado.
+    </p>
+  {% else %}
+    <p class="vazio">
+      Ainda não há pagamentos registados. Regista o dinheiro que entrou e confirma
+      depois quais cobranças cada pagamento liquidou.
+    </p>
+  {% endif %}
+</section>
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('payments.add_payment') }}">Registar pagamento</a>
+  <a class="botao secundario" href="{{ url_for('quotas.charges') }}">Cobranças emitidas</a>
+  <a class="botao secundario" href="{{ url_for('config.config') }}">Configuração</a>
+</p>
+{% endblock %}

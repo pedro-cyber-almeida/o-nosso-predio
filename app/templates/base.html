@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt" data-tema="sistema">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{% block title %}O Nosso Prédio{% endblock %}</title>
+  <script>
+    // O tema é aplicado antes da folha de estilos: a página abre já com a
+    // preferência guardada e não há clarão entre o fundo padrão e o escolhido.
+    (function () {
+      try {
+        var tema = localStorage.getItem("condominio-tema");
+        if (tema === "claro" || tema === "escuro" || tema === "sistema") {
+          document.documentElement.dataset.tema = tema;
+        }
+      } catch (e) { /* sem armazenamento: mantém "sistema" */ }
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+{% macro icone(nome) %}
+  {#- Ícones desenhados aqui (24x24, traço 2): sem CDN, sem fonte de ícones. -#}
+  <svg class="icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+       aria-hidden="true" focusable="false">
+    {%- if nome == "menu" -%}
+      <path d="M4 7h16M4 12h16M4 17h16"/>
+    {%- elif nome == "fechar" -%}
+      <path d="M6.4 6.4l11.2 11.2M17.6 6.4L6.4 17.6"/>
+    {%- elif nome == "painel" -%}
+      <path d="M4 10.5 12 4l8 6.5M6.5 9v11h11V9"/>
+    {%- elif nome == "predio" -%}
+      <path d="M6 20V5.6A1.6 1.6 0 0 1 7.6 4h8.8A1.6 1.6 0 0 1 18 5.6V20M4 20h16M9.5 8h1M13.5 8h1M9.5 12h1M13.5 12h1M10.5 20v-3.5h3V20"/>
+    {%- elif nome == "quota" -%}
+      <path d="M6.5 3.5h11v17l-2.3-1.6-2.2 1.6-2-1.6-2.2 1.6-2.3-1.6zM9 8.5h6M9 12h5"/>
+    {%- elif nome == "cobranca" -%}
+      <path d="M5 6.5h14v11H5zM5 10h14M8.5 14h4"/>
+    {%- elif nome == "pagamento" -%}
+      <path d="M3.5 8.5h17v10h-17zM3.5 12.5h17M7 16h3"/>
+    {%- elif nome == "utilizadores" -%}
+      <path d="M9 11.5a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM3 20a6 6 0 0 1 12 0M16 5.4a3.2 3.2 0 0 1 0 6.2M17 20a6 6 0 0 0-2.2-4.6"/>
+    {%- elif nome == "configuracao" -%}
+      <path d="M5 8h9M18 8h1M5 16h1M10 16h9M16 5.5v5M8 13.5v5"/>
+    {%- elif nome == "conta" -%}
+      <path d="M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM5 20a7 7 0 0 1 14 0"/>
+    {%- elif nome == "saida" -%}
+      <path d="M14.5 4.5h-8v15h8M11 12h8M16 8.5 19.5 12 16 15.5"/>
+    {%- elif nome == "tema" -%}
+      <path d="M12 4v2.2M12 17.8V20M4 12h2.2M17.8 12H20M6.6 6.6l1.6 1.6M15.8 15.8l1.6 1.6M17.4 6.6l-1.6 1.6M8.2 15.8l-1.6 1.6M12 8.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>
+    {%- elif nome == "alerta" -%}
+      <path d="M12 4.5 21 20H3zM12 10v4.4M12 17.2h.01"/>
+    {%- elif nome == "confirmar" -%}
+      <path d="M5 12.5l4.5 4.5L19 7.5"/>
+    {%- elif nome == "email" -%}
+      <path d="M4 6.5h16v11H4zM4 7.5l8 5.5 8-5.5"/>
+    {%- elif nome == "documento" -%}
+      <path d="M7 3.5h7l4 4v12H7zM13.5 3.5v4.5H18M10 12h6M10 15.5h6"/>
+    {%- elif nome == "ia" -%}
+      <path d="M12 3.5l1.7 4.3 4.3 1.7-4.3 1.7L12 15.5l-1.7-4.3L6 9.5l4.3-1.7zM18.5 15l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>
+    {%- endif -%}
+  </svg>
+{% endmacro %}
+{% set caminho = request.path %}
+{% set seccoes = [
+  ("/minhas-fracoes", "As minhas frações"),
+  ("/utilizadores", "Utilizadores"),
+  ("/fractions", "Frações"),
+  ("/quotas", "Quotas"),
+  ("/charges", "Cobranças"),
+  ("/payments", "Pagamentos"),
+  ("/despesas", "Despesas"),
+  ("/config", "Definições"),
+  ("/definicoes", "Definições"),
+  ("/conta", "Conta"),
+] %}
+{% set ns = namespace(titulo="O Nosso Prédio") %}
+{% for prefixo, nome in seccoes %}
+  {% if caminho.startswith(prefixo) %}{% set ns.titulo = nome %}{% endif %}
+{% endfor %}
+{% if caminho == "/" %}
+  {% if utilizador_atual and utilizador_atual.role == 'administrador' %}
+    {% set ns.titulo = "Painel do administrador" %}
+  {% else %}
+    {% set ns.titulo = "Painel" %}
+  {% endif %}
+{% endif %}
+{% block shell %}
+<body>
+  <div class="aplicacao {{ 'sem-nav' if not utilizador_atual }}">
+    <header class="topo">
+      <button type="button" class="botao-icone menu-nav" aria-expanded="false"
+              aria-controls="navegacao" aria-label="Abrir navegação">
+        {{ icone("menu") }}
+      </button>
+      {#- A barra superior dá contexto (secção/página); o título da página é o h1
+          do conteúdo, presente em todas as páginas com navegação. -#}
+      <span class="titulo-pagina">{{ ns.titulo }}</span>
+      {% if utilizador_atual %}
+        <div class="topo-conta">
+          <label class="sr" for="seletor-tema">Tema da interface</label>
+          <span class="seletor-tema">
+            {{ icone("tema") }}
+            <select id="seletor-tema">
+              <option value="claro">Claro</option>
+              <option value="escuro">Escuro</option>
+              <option value="sistema">Sistema</option>
+            </select>
+          </span>
+          <div class="conta">
+            <button type="button" class="botao-icone conta-abrir" aria-expanded="false"
+                    aria-controls="menu-conta" aria-label="Menu do utilizador">
+              <span class="conta-inicial" aria-hidden="true">
+                {{ (utilizador_atual.display_name or utilizador_atual.username)[0] | upper }}
+              </span>
+            </button>
+            <div class="menu-conta" id="menu-conta" hidden>
+              <p class="menu-conta-cabeca">
+                <strong>{{ utilizador_atual.display_name or utilizador_atual.username }}</strong>
+                <span class="distincao">{{ 'Administrador' if utilizador_atual.role == 'administrador' else 'Condómino' }}</span>
+              </p>
+              <ul>
+                <li>
+                  <a href="{{ url_for('auth.alterar_palavra_passe') }}">
+                    {{ icone("conta") }} Alterar palavra-passe
+                  </a>
+                </li>
+                <li>
+                  <form method="post" action="{{ url_for('auth.logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit">
+                      {{ icone("saida") }} Terminar sessão
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </header>
+
+    {% if utilizador_atual %}
+      <div class="veu" hidden></div>
+      <nav class="nav" id="navegacao" aria-label="Navegação principal">
+        <p class="nav-marca">
+          <span class="nav-marca-predio">{{ icone("predio") }}</span>
+          <span>O Nosso Prédio</span>
+        </p>
+        {% if utilizador_atual.role == 'administrador' %}
+          <p class="nav-rotulo">Gestão</p>
+          <a class="nav-destino {{ 'ativo' if caminho == '/' }}"
+             href="{{ url_for('dashboard.painel') }}">{{ icone("painel") }}<span>Painel</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/fractions') }}"
+             href="{{ url_for('fractions.fractions_list') }}">{{ icone("predio") }}<span>Frações</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/quotas') }}"
+             href="{{ url_for('quotas.quotas') }}">{{ icone("quota") }}<span>Quotas</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/charges') }}"
+             href="{{ url_for('quotas.charges') }}">{{ icone("cobranca") }}<span>Cobranças</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/payments') }}"
+             href="{{ url_for('payments.payments_list') }}">{{ icone("pagamento") }}<span>Pagamentos</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/despesas') }}"
+             href="{{ url_for('despesas.expenses_list') }}">{{ icone("cobranca") }}<span>Despesas</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/email') }}"
+             href="{{ url_for('email.email_lista') }}">{{ icone("email") }}<span>Email</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/documentos') }}"
+             href="{{ url_for('documentos.documentos_lista') }}">{{ icone("documento") }}<span>Documentos</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/automacao') }}"
+             href="{{ url_for('automacao.pagina') }}">{{ icone("configuracao") }}<span>Automatização</span></a>
+          <p class="nav-rotulo">Pessoas e ajustes</p>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/utilizadores') }}"
+             href="{{ url_for('auth.users_list') }}">{{ icone("utilizadores") }}<span>Utilizadores</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/config') or caminho.startswith('/definicoes') }}"
+             href="{{ url_for('config.config') }}">{{ icone("configuracao") }}<span>Definições</span></a>
+        {% else %}
+          <p class="nav-rotulo">A tua fração</p>
+          <a class="nav-destino {{ 'ativo' if caminho == '/' }}"
+             href="{{ url_for('dashboard.painel') }}">{{ icone("painel") }}<span>Painel</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/minhas-fracoes') }}"
+             href="{{ url_for('portal.minhas_fracoes') }}">{{ icone("predio") }}<span>As minhas frações</span></a>
+          <p class="nav-rotulo">A tua conta</p>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/documentos') }}"
+             href="{{ url_for('documentos.documentos_meus') }}">{{ icone("documento") }}<span>Os meus documentos</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/comprovativos') }}"
+             href="{{ url_for('documentos.comprovativos') }}">{{ icone("pagamento") }}<span>Comprovativos</span></a>
+          <a class="nav-destino {{ 'ativo' if caminho.startswith('/conta') }}"
+             href="{{ url_for('auth.alterar_palavra_passe') }}">{{ icone("conta") }}<span>Palavra-passe</span></a>
+        {% endif %}
+      </nav>
+    {% endif %}
+
+    <main>
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% if mensagens %}
+          <ul class="mensagens">
+            {% for categoria, texto in mensagens %}
+              <li class="{{ categoria }}">
+                {{ icone("alerta" if categoria in ("erro", "aviso") else "confirmar") }}
+                <span>{{ texto }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="rodape">
+      Protótipo local em 127.0.0.1 — O Nosso Prédio.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var raiz = document.documentElement;
+
+      var seletor = document.getElementById("seletor-tema");
+      if (seletor) {
+        seletor.value = raiz.dataset.tema || "sistema";
+        seletor.addEventListener("change", function () {
+          raiz.dataset.tema = seletor.value;
+          try { localStorage.setItem("condominio-tema", seletor.value); } catch (e) { /* sessão só */ }
+        });
+      }
+
+      var nav = document.getElementById("navegacao");
+      var abrir = document.querySelector(".menu-nav");
+      var veu = document.querySelector(".veu");
+      if (nav && abrir) {
+        function fecharNav() {
+          nav.classList.remove("aberta");
+          veu.hidden = true;
+          abrir.setAttribute("aria-expanded", "false");
+        }
+        function abrirNav() {
+          nav.classList.add("aberta");
+          veu.hidden = false;
+          abrir.setAttribute("aria-expanded", "true");
+        }
+        abrir.addEventListener("click", function () {
+          if (nav.classList.contains("aberta")) fecharNav(); else abrirNav();
+        });
+        veu.addEventListener("click", fecharNav);
+        document.addEventListener("keydown", function (evento) {
+          if (evento.key === "Escape") fecharNav();
+        });
+      }
+
+      var conta = document.querySelector(".conta-abrir");
+      var menu = document.getElementById("menu-conta");
+      if (conta && menu) {
+        function fecharMenu() {
+          menu.hidden = true;
+          conta.setAttribute("aria-expanded", "false");
+        }
+        conta.addEventListener("click", function (evento) {
+          evento.stopPropagation();
+          menu.hidden = !menu.hidden;
+          conta.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+        });
+        document.addEventListener("click", function (evento) {
+          if (!menu.contains(evento.target)) fecharMenu();
+        });
+        document.addEventListener("keydown", function (evento) {
+          if (evento.key === "Escape") fecharMenu();
+        });
+      }
+    })();
+  </script>
+</body>
+{% endblock %}
+</html>

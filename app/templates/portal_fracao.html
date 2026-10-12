@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Fração {{ fracao.code }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Fração {{ fracao.code }}{% if not fracao.active %} (desativada){% endif %}</h1>
+<p class="nota">
+  Permilagem: <strong class="num">{{ fracao.permilagem_texto }}</strong>.
+  Esta página é de consulta: registar, corrigir e anular pagamentos pertence à
+  administração.
+</p>
+
+{% if responsaveis %}
+  <p class="nota">
+    Responsáveis atuais:
+    {% for r in responsaveis %}{{ r.name }} ({{ ROLE_LABELS[r.role] }}){{ ", " if not loop.last }}{% endfor %}
+  </p>
+{% endif %}
+
+<div class="cartoes">
+  <div class="cartao ficha">
+    <p class="rotulo">Em dívida</p>
+    <p class="montante">{{ totais.divida_texto }}</p>
+    <p class="nota">Cobranças emitidas e ainda não liquidadas.</p>
+  </div>
+  <div class="cartao ficha">
+    <p class="rotulo">Dívida vencida</p>
+    <p class="montante">{{ totais.vencida_texto }}</p>
+    <p class="nota">Só cobranças com data de vencimento já passada.</p>
+  </div>
+  <div class="cartao ficha">
+    <p class="rotulo">Crédito por afetar</p>
+    <p class="montante">{{ totais.credito_texto }}</p>
+    <p class="nota">Dinheiro recebido e ainda não distribuído por cobranças.</p>
+  </div>
+</div>
+
+<h2>Cobranças</h2>
+{% if cobrancas %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Mês</th>
+          <th scope="col">Rubrica</th>
+          <th scope="col">Descrição</th>
+          <th scope="col" class="num">Cobrança</th>
+          <th scope="col" class="num">Liquidado</th>
+          <th scope="col" class="num">Em dívida</th>
+          <th scope="col">Vencimento</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cobranca in cobrancas %}
+          <tr>
+            <th scope="row">{{ cobranca.period_texto }}</th>
+            <td>{{ cobranca.rubrica_texto }}</td>
+            <td>{% if cobranca.descricao %}{{ cobranca.descricao }}{% else %}—{% endif %}</td>
+            <td class="num">{{ format_money(cobranca.amount_cents) }}</td>
+            <td class="num">{{ format_money(cobranca.pago_cents) }}</td>
+            <td class="num">
+              {{ format_money(cobranca.em_divida_cents) }}
+              {% if cobranca.vencida %}<span class="erro">(vencida)</span>{% endif %}
+            </td>
+            <td class="num">
+              {% if cobranca.due_date %}{{ cobranca.due_texto }}
+              {% else %}<span class="por-confirmar">por confirmar</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">Ainda não há cobranças emitidas para esta fração.</p>
+{% endif %}
+
+<h2>Pagamentos registados</h2>
+{% if pagamentos %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Data</th>
+          <th scope="col" class="num">Valor</th>
+          <th scope="col">Meio</th>
+          <th scope="col" class="num">Afetado</th>
+          <th scope="col" class="num">Crédito</th>
+          <th scope="col">Referência</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pagamento in pagamentos %}
+          <tr>
+            <th scope="row" class="num">{{ pagamento.data_texto }}</th>
+            <td class="num">
+              {{ pagamento.valor_texto }}
+              {% if pagamento.anulado %}
+                <span class="erro">(anulado: {{ pagamento.motivo_anulacao }})</span>
+              {% endif %}
+            </td>
+            <td>{{ pagamento.meio_texto }}</td>
+            <td class="num">{{ pagamento.afetado_texto }}</td>
+            <td class="num">{{ pagamento.crediticio_texto }}</td>
+            <td>{{ pagamento.referencia or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não há pagamentos registados para esta fração. O administrador regista
+    o dinheiro que entrou; tu podes acompanhar aqui o efeito.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('portal.minhas_fracoes') }}">Voltar às minhas frações</a>
+</p>
+{% endblock %}

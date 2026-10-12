@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Fração {{ fracao.code }} — movimento — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Fração {{ fracao.code }} — movimento</h1>
+{% if not fracao.active %}
+  <p class="nota">Fração desativada: o histórico conserva-se.</p>
+{% endif %}
+
+<section class="cartoes">
+  <div class="cartao">
+    <h2>Situação</h2>
+    <p>Emitido: <strong>{{ totais.cobrado_texto }}</strong></p>
+    <p>Recebido: <strong>{{ totais.recebido_texto }}</strong></p>
+    <p>Afetado a cobranças: <strong>{{ totais.afetado_texto }}</strong></p>
+    <p>Crédito por afetar: <strong>{{ totais.credito_texto }}</strong></p>
+    <p>Dívida: <strong>{{ totais.divida_texto }}</strong></p>
+    <p>
+      Dívida vencida:
+      <strong>
+        {% if totais.vencida_cents %}{{ totais.vencida_texto }}{% else %}—{% endif %}
+      </strong>
+    </p>
+    <p>Recebimentos afetados ao fundo: <strong>{{ totais.ao_fundo_texto }}</strong></p>
+    {% if totais.anulado_cents %}
+      <p class="nota">Pagamentos anulados desta fração: {{ totais.anulado_texto }} (não contam).</p>
+    {% endif %}
+  </div>
+
+  <div class="cartao">
+    <h2>Saldo desta fração</h2>
+    {% if saldo_inicial_confirmado %}
+      <p class="nota">
+        Saldo inicial de caixa do prédio confirmado: {{ saldo_caixa_texto }}.
+        É um valor do prédio, não desta fração.
+      </p>
+    {% else %}
+      <p class="erro">Saldo inicial por confirmar.</p>
+    {% endif %}
+    <p class="nota">
+      Aqui mostram-se os movimentos conhecidos desta fração. O saldo total da fração
+      depende do saldo inicial e das dívidas de abertura, que ainda não foram
+      confirmados, e das despesas do prédio, registadas pelo administrador.
+      Crédito por afetar não é automaticamente afeto ao fundo.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Cobranças e o que está liquidado</h2>
+  {% if cobrancas %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Mês</th>
+          <th scope="col">Rubrica</th>
+          <th scope="col">Descrição</th>
+          <th scope="col">Emitido</th>
+          <th scope="col">Liquidado</th>
+          <th scope="col">Em dívida</th>
+          <th scope="col">Vencimento</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cobranca in cobrancas %}
+          <tr>
+            <th scope="row">{{ cobranca.period_texto }}</th>
+            <td>{{ cobranca.rubrica_texto }}</td>
+            <td>{% if cobranca.descricao %}{{ cobranca.descricao }}{% else %}—{% endif %}</td>
+            <td>{{ format_money(cobranca.amount_cents) }}</td>
+            <td>{{ format_money(cobranca.pago_cents) }}</td>
+            <td>
+              {% if cobranca.liquidada %}
+                liquidada
+              {% else %}
+                {{ format_money(cobranca.em_divida_cents) }}
+                {% if cobranca.vencida %}<span class="erro">(vencida)</span>{% endif %}
+              {% endif %}
+            </td>
+            <td>{{ cobranca.due_texto }}</td>
+            <td>
+              <a href="{{ url_for('quotas.correct_charge', charge_id=cobranca.id) }}">Corrigir</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="vazio">
+      Esta fração ainda não tem cobranças emitidas. Gera um mês em Quotas &rarr;
+      Pré-visualizar um mês.
+    </p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Pagamentos desta fração</h2>
+  {% if pagamentos %}
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Data</th>
+          <th scope="col">Valor</th>
+          <th scope="col">Meio</th>
+          <th scope="col">Referência</th>
+          <th scope="col">Afetações</th>
+          <th scope="col">Crédito</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pagamento in pagamentos %}
+          <tr>
+            <th scope="row">{{ pagamento.paid_on }}</th>
+            <td>{{ format_money(pagamento.amount_cents) }}</td>
+            <td>{{ pagamento.method_texto }}</td>
+            <td>{{ pagamento.reference or "—" }}</td>
+            <td>
+              {% if pagamento.afetacoes %}
+                {% for afetao in pagamento.afetacoes %}
+                  {{ afetao.period_texto }} &middot; {{ afetao.rubrica_texto }}:
+                  {{ format_money(afetao.amount_cents) }}<br>
+                {% endfor %}
+                {% if pagamento.anulado %}
+                  <span class="nota">sem efeito: o pagamento está anulado</span>
+                {% endif %}
+              {% else %}
+                nenhuma
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.anulado %}
+                —
+              {% else %}
+                {{ format_money(pagamento.credito_cents) }}
+              {% endif %}
+            </td>
+            <td>
+              {% if pagamento.anulado %}
+                anulado em {{ pagamento.cancelled_at }}
+                <br><span class="nota">{{ pagamento.cancellation_reason }}</span>
+              {% else %}
+                <a href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">válido</a>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">Abrir</a>
+              {% if not pagamento.anulado %}
+                · <a href="{{ url_for('payments.edit_payment', payment_id=pagamento.id) }}">Editar</a>
+              {% endif %}
+              {% if pagamento.correcoes %}
+                · <a href="{{ url_for('payments.payment_history', payment_id=pagamento.id) }}">
+                    Correções ({{ pagamento.correcoes }})
+                  </a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="vazio">
+      Ainda não há pagamentos registados para esta fração.
+      <a href="{{ url_for('payments.add_payment') }}">Registar pagamento</a>.
+    </p>
+  {% endif %}
+</section>
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('payments.add_payment') }}">Registar pagamento</a>
+  <a class="botao secundario" href="{{ url_for('payments.payments_list') }}">Pagamentos e saldos</a>
+  <a class="botao secundario" href="{{ url_for('fractions.fraction_detail', fraction_id=fracao.id) }}">
+    Dados da fração
+  </a>
+</p>
+{% endblock %}

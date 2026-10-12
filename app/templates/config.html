@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Configuração — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Configuração</h1>
+
+<nav class="abas" aria-label="Secções das definições">
+  <a class="aba ativa" href="{{ url_for('config.config') }}">Geral</a>
+  <a class="aba" href="{{ url_for('integracoes.integracoes') }}">Integrações</a>
+</nav>
+
+<form method="post" class="formulario formulario-config">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_configuracao" value="{{ revisao_configuracao() }}">
+
+  <section class="grupo">
+    <h2>Condomínio</h2>
+    <div class="grelha-campos">
+      <label for="condominio_nome">Nome do condomínio
+        <input id="condominio_nome" name="condominio_nome" value="{{ view.condominio_nome }}"
+               required autocomplete="off">
+        <span class="ajuda">Identifica o prédio em toda a aplicação.</span>
+      </label>
+      <label for="condominio_morada">Morada
+        <input id="condominio_morada" name="condominio_morada" value="{{ view.condominio_morada }}"
+               autocomplete="off">
+        <span class="ajuda">Opcional.</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="grupo">
+    <h2>Gestão</h2>
+    <div class="grelha-campos">
+      <label for="gestao_data_inicio">Data de início da gestão
+        <input id="gestao_data_inicio" type="date" name="gestao_data_inicio"
+               value="{{ view.gestao_data_inicio }}">
+        <span class="ajuda">A partir de quando esta gestão registou movimentos.</span>
+      </label>
+      <label for="quota_dia_vencimento">Dia de vencimento das quotas (1 a 28)
+        <input id="quota_dia_vencimento" type="number" name="quota_dia_vencimento" min="1" max="28"
+               value="{{ view.quota_dia_vencimento }}">
+        <span class="ajuda">Aplicado às cobranças geradas.</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="grupo">
+    <h2>Saldos de abertura</h2>
+    <div class="grelha-campos">
+      <label for="saldo_inicial_caixa_centimos">Saldo inicial de caixa
+        <input id="saldo_inicial_caixa_centimos" name="saldo_inicial_caixa_centimos"
+               value="{{ view.saldo_caixa_edicao }}" autocomplete="off"
+               placeholder="por confirmar" inputmode="decimal">
+        <span class="ajuda">Deixa vazio enquanto não confirmaste o valor.</span>
+      </label>
+      <label for="saldo_inicial_fundo_centimos">Saldo inicial do fundo comum de reserva
+        <input id="saldo_inicial_fundo_centimos" name="saldo_inicial_fundo_centimos"
+               value="{{ view.saldo_fundo_edicao }}" autocomplete="off"
+               placeholder="por confirmar" inputmode="decimal">
+        <span class="ajuda">Um saldo por confirmar nunca é apresentado como definitivo.</span>
+      </label>
+    </div>
+
+    <label for="dividas_abertura_notas">Notas sobre dívidas de abertura
+      <textarea id="dividas_abertura_notas" name="dividas_abertura_notas" rows="3">{{ view.dividas_abertura_notas }}</textarea>
+      <span class="ajuda">Rasto informativo; não altera movimentos financeiros.</span>
+    </label>
+
+    <details class="calc">
+      <summary>Como escrever os valores</summary>
+      <ul>
+        <li>Escreve em euros, com vírgula para os cêntimos: 47,00 ou 1.234,56.</li>
+        <li>O ponto separa milhares; não é separador decimal.</li>
+      </ul>
+    </details>
+
+    <p class="rotulo">Estado confirmado</p>
+    <table>
+      <tbody>
+        <tr><th scope="row">Saldo inicial de caixa</th><td>{{ view.saldo_caixa_texto }}</td></tr>
+        <tr><th scope="row">Saldo inicial do fundo</th><td>{{ view.saldo_fundo_texto }}</td></tr>
+        <tr><th scope="row">Data de início da gestão</th><td>{{ view.gestao_data_inicio_texto }}</td></tr>
+        <tr>
+          <th scope="row">Dia de vencimento</th>
+          <td>{{ view.quota_dia_vencimento or "por confirmar" }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="nota">
+      Enquanto o dia de vencimento estiver por confirmar, as cobranças geradas não têm
+      data de vencimento e não são apresentadas como vencidas.
+      <a href="{{ url_for('quotas.quotas') }}">Regras de quotas</a> e
+      <a href="{{ url_for('quotas.charges') }}">cobranças geradas</a> têm página própria.
+    </p>
+  </section>
+
+  <div class="acoes">
+    <button type="submit">Guardar configuração</button>
+  </div>
+</form>
+{% endblock %}

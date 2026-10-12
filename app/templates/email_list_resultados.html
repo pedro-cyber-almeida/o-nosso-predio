@@ -1,0 +1,53 @@
+{% if erro %}
+  <p class="aviso-config" role="alert">{{ erro }}</p>
+{% endif %}
+
+{% if mensagens %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Data</th>
+          <th scope="col">Remetente</th>
+          <th scope="col">Assunto</th>
+          <th scope="col">Anexo</th>
+          <th scope="col"><span class="sr">Ações</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mensagem in mensagens %}
+          <tr>
+            <th scope="row">{{ mensagem.data_texto }}</th>
+            <td>{{ mensagem.remetente }}</td>
+            <td>{{ mensagem.assunto }}</td>
+            <td>{{ 'sim' if mensagem.anexo else '' }}</td>
+            <td><a href="{{ url_for('email.email_mensagem', mensagem_id=mensagem.id) }}">Abrir</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if falhas %}
+    <p class="nota">{{ falhas }} mensagem(ns) não puderam ser lidas agora.</p>
+  {% endif %}
+  <p class="nota">
+    {% if total_estimado is not none %}{{ total_estimado }} resultado(s) estimado(s).{% endif %}
+  </p>
+  <div class="acoes">
+    {% if pagina_seguinte %}
+      <a class="botao secundario pequeno"
+         href="{{ url_for('email.email_lista', q=consulta, pagina=pagina_seguinte) }}">Página seguinte</a>
+    {% endif %}
+  </div>
+{% elif not erro %}
+  <p class="vazio">
+    Sem emails com estes filtros. Usa 「Atualizar」 ou altera a pesquisa.
+  </p>
+{% endif %}
+
+<script id="fim-carregamento">
+  // Os resultados chegaram (sucesso ou erro): termina o estado de carregamento.
+  var alvo = document.getElementById("a-carregar");
+  if (alvo) alvo.remove();
+</script>

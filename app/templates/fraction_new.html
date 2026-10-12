@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Nova fração — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Nova fração</h1>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_fracoes" value="{{ revisao_fracoes() }}">
+
+  <label for="code">Letra da fração
+    <input id="code" name="code" value="{{ code }}" maxlength="1" required
+           autocomplete="off" placeholder="I">
+  </label>
+
+  <label for="permilagem">Permilagem
+    <input id="permilagem" name="permilagem" value="{{ permilagem }}" required
+           autocomplete="off" placeholder="0,00">
+  </label>
+
+  <fieldset>
+    <legend>Permilagens das frações existentes</legend>
+    <p class="nota">
+      Estas são as permilagens tal como estão guardadas. Não são ajustadas sozinhas:
+      só muda o que escreve aqui. A soma final nunca pode exceder 1000,00; durante a
+      configuração pode ser inferior e a página mostra quanto falta.
+    </p>
+    <table class="tabela-form">
+      <thead>
+        <tr>
+          <th scope="col">Fração</th>
+          <th scope="col">Guardada</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in existentes %}
+          <tr>
+            <th scope="row">{{ f.code }}</th>
+            <td>
+              <input name="permilagem_{{ f.id }}" value="{{ f.permilagem }}"
+                     autocomplete="off" aria-label="Permilagem da fração {{ f.code }}">
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </fieldset>
+
+  <label>
+    <input type="checkbox" name="confirmar_reparticao">
+    Confirmo a redistribuição de permilagens necessária para criar esta fração.
+  </label>
+
+  <label for="motivo">Motivo da alteração
+    <input id="motivo" name="motivo" autocomplete="off"
+           placeholder="Ex.: retificação aprovada em assembleia">
+  </label>
+
+  <p class="nota">
+    Criar a fração, ajustar as permilagens e registar o rasto é uma única operação:
+    se a soma não fechar em 1000,00 ou se a confirmação faltar, nada é guardado.
+    Não inventes andares, números de apartamento ou contactos.
+  </p>
+
+  <button type="submit">Criar fração</button>
+  <a class="botao secundario" href="{{ url_for('fractions.fractions_list') }}">Cancelar</a>
+</form>
+{% endblock %}

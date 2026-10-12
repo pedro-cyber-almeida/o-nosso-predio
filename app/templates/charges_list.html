@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Cobranças geradas — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Cobranças geradas</h1>
+
+<p class="nota">
+  Valores emitidos por regra, ainda não recebidos. O que foi liquidado, o crédito por
+  afetar e a dívida por fração vê-se em
+  <a href="{{ url_for('payments.payments_list') }}">Pagamentos e saldos</a>.
+</p>
+
+{% if meses %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Mês</th>
+          <th scope="col" class="num">Cobranças</th>
+          <th scope="col" class="num">Quota ordinária</th>
+          <th scope="col" class="num">Reforço do fundo</th>
+          <th scope="col" class="num">Quota extraordinária</th>
+          <th scope="col" class="num">Total emitido</th>
+          <th scope="col">Consulta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for mes in meses %}
+          <tr>
+            <th scope="row">{{ format_month(mes.period) }}</th>
+            <td class="num">{{ mes.n }}</td>
+            <td class="num">{{ format_money(mes.ordinario) }}</td>
+            <td class="num">{{ format_money(mes.reforco) }}</td>
+            <td class="num">{% if mes.extraordinaria %}{{ format_money(mes.extraordinaria) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ format_money(mes.total) }}</td>
+            <td><a href="{{ url_for('quotas.charge_month', period=mes.period) }}">Abrir</a></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total</th>
+          <td class="num">{{ total_emitidas }}</td>
+          <td colspan="4" class="num">{{ format_money(total_geral) }} emitidos</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">
+    Ainda não há cobranças geradas.
+    <a href="{{ url_for('quotas.generate') }}">Gerar cobranças de um mês</a> e confirmar a geração.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao" href="{{ url_for('quotas.generate') }}">Pré-visualizar um mês</a>
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+  <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quotas') }}">Quotas extraordinárias</a>
+</p>
+{% endblock %}

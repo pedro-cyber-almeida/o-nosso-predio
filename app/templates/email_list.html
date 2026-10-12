@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Email — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Email do condomínio</h1>
+
+<p class="nota">
+  Lista pedida ao Gmail agora, só de leitura: nada é sincronizado automaticamente.
+  「Atualizar」 repete o pedido. Consultar email não cria movimentos financeiros.
+</p>
+
+<form method="get" action="{{ url_for('email.email_lista') }}" class="acoes">
+  <label for="q">Pesquisa
+    <input id="q" name="q" value="{{ consulta }}" autocomplete="off"
+           placeholder="remetente, assunto, referência…">
+  </label>
+  <label for="de">Desde
+    <input id="de" name="de" placeholder="dd/mm/aaaa" autocomplete="off">
+  </label>
+  <label for="ate">Até
+    <input id="ate" name="ate" placeholder="dd/mm/aaaa" autocomplete="off">
+  </label>
+  <button type="submit" class="botao secundario pequeno">Procurar</button>
+  <a class="botao texto" href="{{ url_for('email.email_lista', atualizar=1) }}">Atualizar</a>
+</form>
+
+{# Os resultados chegam em fluxo: numa rede lenta esta estrutura aparece
+   antes do Gmail responder, com aviso de carregamento. #}
+{% for bloco in resultados %}{{ bloco }}{% endfor %}
+{% endblock %}

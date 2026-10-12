@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Histórico do pagamento de despesa n.º {{ pagamento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Histórico do pagamento n.º {{ pagamento.id }}</h1>
+
+<p class="nota">
+  Despesa «{{ pagamento.expense_descricao }}» ·
+  {{ format_money(pagamento.amount_cents) }} · {{ format_date(pagamento.paid_on) }} ·
+  {{ ROTULOS_MEIO[pagamento.method] }}
+  {% if pagamento.anulado %}
+    · <strong>anulado em {{ pagamento.cancelled_at }}</strong> — {{ pagamento.cancellation_reason }}
+  {% endif %}
+</p>
+
+{% if correcoes %}
+  <div class="tabela-inv">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Quando</th>
+          <th scope="col">Motivo</th>
+          <th scope="col">Por</th>
+          <th scope="col">Valor</th>
+          <th scope="col">Data</th>
+          <th scope="col">Meio</th>
+          <th scope="col">Referência</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for correcao in correcoes %}
+          <tr>
+            <th scope="row">{{ correcao.momento_texto }}</th>
+            <td>{{ correcao.motivo }}</td>
+            <td>{{ correcao.por }}</td>
+            <td>{{ correcao.valor_antes_texto }} → {{ correcao.valor_depois_texto }}</td>
+            <td>{{ correcao.data_antes }} → {{ correcao.data_depois }}</td>
+            <td>{{ correcao.meio_antes }} → {{ correcao.meio_depois }}</td>
+            <td>{{ correcao.referencia_antes or "—" }} → {{ correcao.referencia_depois or "—" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="vazio">Este pagamento ainda não foi corrigido.</p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('despesas.expense_detail', expense_id=pagamento.expense_id) }}">
+    Voltar à despesa
+  </a>
+</p>
+{% endblock %}

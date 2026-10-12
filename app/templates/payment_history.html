@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Histórico do pagamento n.º {{ pagamento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Histórico do pagamento n.º {{ pagamento.id }}</h1>
+
+<p class="nota">
+  Versão atualmente guardada: fração {{ pagamento.code }} · {{ pagamento.amount_texto }} ·
+  {{ pagamento.paid_on }} · {{ pagamento.method_texto }} ·
+  referência {{ pagamento.reference or "—" }} · nota {{ pagamento.source or "—" }}.
+  {% if pagamento.anulado %}
+    Este pagamento está anulado e não conta em nenhuma soma.
+  {% endif %}
+  {% if pagamento.edit_reason %}
+    Última correção em {{ pagamento.edited_at_texto }}: {{ pagamento.edit_reason }}.
+  {% endif %}
+</p>
+
+{% if correcoes %}
+  {% for correcao in correcoes %}
+    <section>
+      <h2>Correção de {{ correcao.changed_at_texto }}</h2>
+      <p>
+        <strong>Motivo:</strong> {{ correcao.reason }}
+      </p>
+      <p class="nota">
+        Quem alterou:
+        {% if correcao.changed_by %}
+          {{ correcao.changed_by }}
+        {% else %}
+          por registar — a aplicação não tem autenticação e a identidade não é inventada
+        {% endif %}
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            <th scope="col">Fração</th>
+            <th scope="col">Valor</th>
+            <th scope="col">Data</th>
+            <th scope="col">Meio</th>
+            <th scope="col">Referência</th>
+            <th scope="col">Nota</th>
+            <th scope="col">Afetado</th>
+            <th scope="col">Crédito</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Antes</th>
+            <td>{{ correcao.old.code }}</td>
+            <td>{{ format_money(correcao.old.amount_cents) }}</td>
+            <td>{{ correcao.old.paid_on_texto }}</td>
+            <td>{{ correcao.old.method_texto }}</td>
+            <td>{{ correcao.old.reference or "—" }}</td>
+            <td>{{ correcao.old.source or "—" }}</td>
+            <td>{{ format_money(correcao.distribuido_antes_cents) }}</td>
+            <td>{{ format_money(correcao.credito_antes_cents) }}</td>
+          </tr>
+          <tr>
+            <th scope="row">Depois</th>
+            <td>{{ correcao.new.code }}</td>
+            <td>{{ format_money(correcao.new.amount_cents) }}</td>
+            <td>{{ correcao.new.paid_on_texto }}</td>
+            <td>{{ correcao.new.method_texto }}</td>
+            <td>{{ correcao.new.reference or "—" }}</td>
+            <td>{{ correcao.new.source or "—" }}</td>
+            <td>{{ format_money(correcao.distribuido_depois_cents) }}</td>
+            <td>{{ format_money(correcao.credito_depois_cents) }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Distribuição antes</th>
+            <th scope="col">Distribuição depois</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              {% if correcao.afetacoes_antes %}
+                <ul>
+                  {% for afetao in correcao.afetacoes_antes %}
+                    <li>{{ afetao.rubrica_texto }} de {{ afetao.period_texto }}:
+                        {{ format_money(afetao.amount_cents) }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <span class="vazio">sem afetações</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if correcao.afetacoes_depois %}
+                <ul>
+                  {% for afetao in correcao.afetacoes_depois %}
+                    <li>{{ afetao.rubrica_texto }} de {{ afetao.period_texto }}:
+                        {{ format_money(afetao.amount_cents) }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <span class="vazio">sem afetações</span>
+              {% endif %}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  {% endfor %}
+{% else %}
+  <p class="vazio">
+    Este pagamento ainda não foi corrigido. Cada correção fica registada aqui com os
+    valores anteriores, os novos, a data e o motivo.
+  </p>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">
+    Voltar ao pagamento
+  </a>
+  {% if not pagamento.anulado %}
+    <a class="botao secundario" href="{{ url_for('payments.edit_payment', payment_id=pagamento.id) }}">
+      Editar este pagamento
+    </a>
+  {% endif %}
+  <a class="botao secundario" href="{{ url_for('payments.payments_list') }}">Pagamentos e saldos</a>
+</p>
+{% endblock %}

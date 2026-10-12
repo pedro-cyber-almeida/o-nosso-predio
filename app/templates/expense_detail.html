@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}Despesa n.º {{ despesa.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Despesa n.º {{ despesa.id }} — {{ despesa.descricao }}</h1>
+
+<p class="nota">
+  Estado:
+  {% if despesa.estado == 'paga' %}<strong>paga</strong>
+  {% elif despesa.estado == 'vencida' %}<strong class="erro">vencida</strong> — vencimento passado e ainda por pagar
+  {% elif despesa.estado == 'parcial' %}<strong>parcialmente paga</strong>
+  {% elif despesa.estado == 'anulada' %}<strong>anulada</strong>
+  {% else %}<strong>por pagar</strong>{% endif %}.
+  Uma despesa só é vencida com vencimento passado e montante ainda por pagar.
+</p>
+
+<div class="cartoes">
+  <div class="cartao ficha">
+    <p class="rotulo">Valor da despesa</p>
+    <p class="montante">{{ despesa.amount_texto }}</p>
+    <p class="nota">{{ despesa.classificacao_texto }} · {{ despesa.categoria_nome }}</p>
+  </div>
+  <div class="cartao ficha">
+    <p class="rotulo">Efetivamente pago</p>
+    <p class="montante">{{ despesa.pago_texto }}</p>
+    <p class="nota">Só pagamentos válidos: os anulados deixaram de contar.</p>
+  </div>
+  <div class="cartao ficha">
+    <p class="rotulo">Em falta</p>
+    <p class="montante">{{ despesa.em_falta_texto }}</p>
+    <p class="nota">Calculado: valor menos pagamentos válidos.</p>
+  </div>
+</div>
+
+<table>
+  <tbody>
+    <tr><th scope="row">Descrição</th><td>{{ despesa.descricao }}</td></tr>
+    <tr><th scope="row">Fornecedor</th><td>{{ despesa.fornecedor or "—" }}</td></tr>
+    <tr><th scope="row">Categoria</th><td>{{ despesa.categoria_nome }}</td></tr>
+    <tr><th scope="row">Referência documental</th><td>{{ despesa.referencia or "—" }}</td></tr>
+    <tr><th scope="row">Data da despesa</th><td>{{ despesa.data_texto }}</td></tr>
+    <tr><th scope="row">Vencimento</th><td>{{ despesa.due_texto }}</td></tr>
+    <tr><th scope="row">Classificação</th><td>{{ despesa.classificacao_texto }}</td></tr>
+    <tr><th scope="row">Notas</th><td>{{ despesa.notas or "—" }}</td></tr>
+    {% if despesa.anulada %}
+      <tr><th scope="row">Anulada em</th>
+          <td>{{ despesa.cancelled_at }} — {{ despesa.cancellation_reason }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+{% if not despesa.anulada %}
+  <section>
+    <h2>Registar pagamento</h2>
+    <p class="nota">
+      O pagamento é a saída efetiva de dinheiro. Pode ser parcial: o valor em falta
+      é recalculado a cada pagamento, e pagar acima do que falta é recusado.
+      Falta pagar <strong>{{ despesa.em_falta_texto }}</strong>.
+    </p>
+    {% if despesa.em_falta_cents > 0 %}
+      <form method="post" action="{{ url_for('despesas.pay_expense', expense_id=despesa.id) }}"
+            class="formulario">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+        <input type="hidden" name="form_token" value="{{ form_token }}">
+
+        <label for="valor">Valor pago (euros)
+          <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+                 placeholder="{{ format_money(despesa.em_falta_cents) | replace(' EUR', '') }}" required>
+        </label>
+        <label for="data">Data do pagamento
+          <input id="data" name="data" autocomplete="off" value="{{ hoje_texto }}" placeholder="15/01/2027" required>
+        </label>
+        <label for="meio">Meio de pagamento
+          <select id="meio" name="meio" required>
+            {% for meio in MEIOS %}
+              <option value="{{ meio }}">{{ ROTULOS_MEIO[meio] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label for="referencia">Referência do movimento (opcional)
+          <input id="referencia" name="referencia" autocomplete="off"
+                 placeholder="nº da transferência, do cheque, …">
+        </label>
+
+        <label class="caixa">
+          <input type="checkbox" id="confirmar_pagamento" name="confirmar_pagamento">
+          Confirmo que este dinheiro efetivamente saiu e que o valor e a data
+          correspondem a um comprovativo.
+        </label>
+
+        <button type="submit">Registar pagamento</button>
+      </form>
+    {% else %}
+      <p class="vazio">Esta despesa está paga: não há mais nada por pagar.</p>
+    {% endif %}
+  </section>
+{% endif %}
+
+<section>
+  <h2>Pagamentos desta despesa</h2>
+  {% if pagamentos %}
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Data</th>
+            <th scope="col" class="num">Valor</th>
+            <th scope="col">Meio</th>
+            <th scope="col">Referência</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="sr">Ações</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pagamento in pagamentos %}
+            <tr>
+              <th scope="row" class="num">{{ pagamento.paid_on_texto }}</th>
+              <td class="num">{{ pagamento.amount_texto }}</td>
+              <td>{{ pagamento.method_texto }}</td>
+              <td>{{ pagamento.reference or "—" }}</td>
+              <td>
+                {% if pagamento.anulado %}
+                  <span class="nota">anulado em {{ pagamento.cancelled_at }} — {{ pagamento.cancellation_reason }}</span>
+                {% else %}
+                  válido
+                {% endif %}
+              </td>
+              <td>
+                {% if not pagamento.anulado %}
+                  <a href="{{ url_for('despesas.edit_expense_payment', payment_id=pagamento.id) }}">Editar</a>
+                  ·
+                {% endif %}
+                <a href="{{ url_for('despesas.expense_payment_history', payment_id=pagamento.id) }}">
+                  Histórico{% if pagamento.correcoes %} ({{ pagamento.correcoes }}){% endif %}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="vazio">
+      Ainda sem pagamentos: registar a despesa não mexeu na caixa.
+      {% if not despesa.anulada %}Regista o pagamento em cima.{% endif %}
+    </p>
+  {% endif %}
+</section>
+
+{% if correcoes %}
+  <section>
+    <h2>Histórico de correções da despesa</h2>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Quando</th>
+            <th scope="col">Motivo</th>
+            <th scope="col">Por</th>
+            <th scope="col">Valor</th>
+            <th scope="col">Outras mudanças</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for correcao in correcoes %}
+            <tr>
+              <th scope="row">{{ correcao.momento_texto }}</th>
+              <td>{{ correcao.motivo }}</td>
+              <td>{{ correcao.por }}</td>
+              <td>{{ correcao.valor_antes_texto }} → {{ correcao.valor_depois_texto }}</td>
+              <td>
+                {% if correcao.categoria_antes != correcao.categoria_depois %}
+                  categoria: {{ correcao.categoria_antes }} → {{ correcao.categoria_depois }}
+                {% endif %}
+                {% if correcao.vencimento_antes != correcao.vencimento_depois %}
+                  · vencimento: {{ correcao.vencimento_antes }} → {{ correcao.vencimento_depois }}
+                {% endif %}
+                {% if correcao.classificacao_antes != correcao.classificacao_depois %}
+                  · {{ correcao.classificacao_antes }} → {{ correcao.classificacao_depois }}
+                {% endif %}
+                {% if correcao.descricao_antes != correcao.descricao_depois %}
+                  · descrição alterada
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+
+{% if not despesa.anulada %}
+  <section>
+    <h2>Ações sobre a despesa</h2>
+    <p class="acoes">
+      <a class="botao secundario" href="{{ url_for('despesas.edit_expense', expense_id=despesa.id) }}">
+        Editar despesa
+      </a>
+    </p>
+    <form method="post" action="{{ url_for('despesas.cancel_expense', expense_id=despesa.id) }}"
+          class="formulario tabela-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="revisao_despesas" value="{{ revisao_despesas() }}">
+      <label for="motivo_anular">Motivo da anulação (obrigatório)
+        <input id="motivo_anular" name="motivo" autocomplete="off"
+               placeholder="despesa registada por engano, despesa que não chegou a existir, …">
+      </label>
+      <label class="caixa">
+        <input type="checkbox" id="confirmar_anular" name="confirmar_anular">
+        Confirmo a anulação: o registo conserva-se com a data e o motivo, e deixa de
+        contar nas somas.
+        {% if despesa.pago_cents > 0 %}
+          <span class="erro">Esta despesa tem pagamentos válidos: anula primeiro os pagamentos.</span>
+        {% endif %}
+      </label>
+      <button type="submit" class="secundario">Anular despesa</button>
+    </form>
+  </section>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('despesas.expenses_list') }}">Voltar às despesas</a>
+</p>
+{% endblock %}

@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Editar pagamento n.º {{ pagamento.id }} — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Editar pagamento n.º {{ pagamento.id }} — fração {{ pagamento.code }}</h1>
+
+<p class="nota">
+  Corrigir um pagamento não cria um segundo registo: o mesmo pagamento passa a ter os
+  valores corrigidos e as somas da aplicação passam a lê-los. O que estava antes fica
+  guardado no histórico, com a data e o motivo.
+  <strong>O motivo é obrigatório.</strong> O teu nome de utilizador fica registado como
+  quem corrigiu.
+</p>
+
+<table>
+  <tbody>
+    <tr><th scope="row">Versão guardada</th>
+        <td>fração {{ pagamento.code }} · {{ pagamento.amount_texto }} ·
+            {{ pagamento.paid_on }} · {{ pagamento.method_texto }}</td></tr>
+    {% if pagamento.edit_reason %}
+      <tr><th scope="row">Última correção</th>
+          <td>{{ pagamento.edited_at_texto }} — {{ pagamento.edit_reason }}</td></tr>
+    {% endif %}
+  </tbody>
+</table>
+
+<form method="post" action="{{ url_for('payments.edit_payment', payment_id=pagamento.id) }}"
+      class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_pagamentos" value="{{ revisao_pagamentos() }}">
+  <input type="hidden" name="edit_token" value="{{ edit_token }}">
+
+  <label for="fracao">Fração
+    <select id="fracao" name="fracao" required>
+      {% for fracao in fracoes %}
+        <option value="{{ fracao.id }}"{% if fracao.id == valores.fracao %} selected{% endif %}>
+          {{ fracao.code }}{% if not fracao.active %} (desativada){% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="valor">Valor recebido (euros)
+    <input id="valor" name="valor" autocomplete="off" inputmode="decimal"
+           value="{{ valores.valor }}" required>
+  </label>
+
+  <label for="data">Data do pagamento
+    <input id="data" name="data" autocomplete="off" value="{{ valores.data }}"
+           placeholder="15/01/2027" required>
+  </label>
+
+  <label for="meio">Meio de pagamento
+    <select id="meio" name="meio" required>
+      {% for meio in MEIOS %}
+        <option value="{{ meio }}"{% if meio == valores.meio %} selected{% endif %}>
+          {{ ROTULOS_MEIO[meio] }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label for="referencia">Referência do movimento (opcional)
+    <input id="referencia" name="referencia" autocomplete="off" value="{{ valores.referencia }}">
+  </label>
+
+  <label for="source">Nota (opcional)
+    <input id="source" name="source" autocomplete="off" value="{{ valores.source }}">
+  </label>
+
+  <label for="motivo">Motivo da correção (obrigatório)
+    <input id="motivo" name="motivo" autocomplete="off"
+           placeholder="valor errado, fração errada, distribuição errada" required>
+  </label>
+
+  <section>
+    <h2>Distribuição por cobranças</h2>
+    <p class="nota">
+      Os campos vêm preenchidos com a distribuição atual. Deixa um campo vazio para
+      retirar essa afetação, ou escreve outro valor para a ajustar. Uma afetação não
+      pode exceder o que está em dívida nessa cobrança, e a soma não pode exceder o
+      valor do pagamento.
+      {% if afetacoes_atuais %}
+        Distribuído agora: <strong>{{ afetacoes_atuais | length }} afetação(ões)</strong>.
+      {% else %}
+        Este pagamento não tem afetações: o valor inteiro é crédito da fração.
+      {% endif %}
+    </p>
+
+    {% if cobrancas %}
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Mês</th>
+            <th scope="col">Rubrica</th>
+            <th scope="col">Cobrança</th>
+            <th scope="col">Já liquidado</th>
+            <th scope="col">Em dívida</th>
+            <th scope="col">Afetação deste pagamento (euros)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cobranca in cobrancas %}
+            {% if cobranca.em_divida_cents > 0 or cobranca.proposta_texto %}
+              <tr>
+                <th scope="row">{{ cobranca.period_texto }}</th>
+                <td>{{ cobranca.rubrica_texto }}</td>
+                <td>{{ format_money(cobranca.amount_cents) }}</td>
+                <td>{{ format_money(cobranca.pago_cents) }}</td>
+                <td>{{ format_money(cobranca.em_divida_cents) }}</td>
+                <td>
+                  <label class="sr" for="afecao_{{ cobranca.id }}">
+                    Afetação a {{ cobranca.rubrica_texto }} de {{ cobranca.period_texto }}
+                  </label>
+                  <input id="afecao_{{ cobranca.id }}" name="afecao_{{ cobranca.id }}"
+                         autocomplete="off" inputmode="decimal" placeholder="0,00"
+                         value="{{ cobranca.proposta_texto }}">
+                </td>
+              </tr>
+            {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="vazio">
+        Esta fração não tem cobranças por liquidar: o pagamento fica como crédito.
+      </p>
+    {% endif %}
+
+    {% if afetacoes_atuais %}
+      <label>
+        <input type="checkbox" id="confirmar_retirada_distribuicao"
+               name="confirmar_retirada_distribuicao">
+        Confirmo a retirada de toda a distribuição: este pagamento passa a crédito
+        integral da fração e as cobranças voltam a estar em dívida.
+      </label>
+    {% endif %}
+  </section>
+
+  <label>
+    <input type="checkbox" id="confirmar_mudanca_de_fracao" name="confirmar_mudanca_de_fracao">
+    Confirmo que, ao mudar de fração, as afetações atuais são retiradas e as cobranças
+    dessa fração voltam a estar em dívida. Nenhuma afetação é transferida para a nova fração.
+  </label>
+
+  {% if efeito %}
+    <section>
+      <h2>Efeito desta correção</h2>
+      <p class="nota">
+        Nada foi gravado ainda. Isto é o que acontece se confirmares.
+      </p>
+
+      <table>
+        <tbody>
+          <tr>
+            <th scope="row">Valor do pagamento</th>
+            <td>{{ pagamento.amount_texto }} → <strong>{{ valores.valor }} EUR</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Afetado a cobranças</th>
+            <td>{{ efeito.afetado_antes_texto }} → <strong>{{ efeito.afetado_depois_texto }}</strong></td>
+          </tr>
+          <tr>
+            <th scope="row">Crédito deste pagamento</th>
+            <td>{{ efeito.credito_pagamento_antes_texto }} →
+                <strong>{{ efeito.credito_pagamento_depois_texto }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      {% if efeito.cobrancas %}
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Cobrança</th>
+              <th scope="col">Fração</th>
+              <th scope="col">Em dívida antes</th>
+              <th scope="col">Em dívida depois</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cobranca in efeito.cobrancas %}
+              <tr>
+                <th scope="row">{{ cobranca.rubrica_texto }} de {{ cobranca.period_texto }}</th>
+                <td>{{ cobranca.code }}</td>
+                <td>{{ cobranca.divida_antes_texto }}</td>
+                <td>
+                  <strong>{{ cobranca.divida_depois_texto }}</strong>
+                  {% if cobranca.liquidada_depois %} (liquidada){% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="vazio">Nenhuma cobrança é afetada por esta correção.</p>
+      {% endif %}
+
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col">Recebido</th>
+            <th scope="col">Crédito por afetar</th>
+            <th scope="col">Dívida</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for fracao in efeito.fracoes %}
+            <tr>
+              <th scope="row">{{ fracao.code }}</th>
+              <td>{{ fracao.recebido_antes_texto }} → {{ fracao.recebido_depois_texto }}</td>
+              <td>{{ fracao.credito_antes_texto }} → {{ fracao.credito_depois_texto }}</td>
+              <td>{{ fracao.divida_antes_texto }} → {{ fracao.divida_depois_texto }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% endif %}
+
+  <label>
+    <input type="checkbox" id="confirmar_edicao" name="confirmar_edicao">
+    Confirmo esta correção, com o motivo indicado, e aceito que os valores anteriores
+    fiquem guardados no histórico.
+  </label>
+
+  <p class="acoes">
+    <button type="submit" name="previsualizar" value="on">Pré-visualizar o efeito</button>
+    <button type="submit">Confirmar correção</button>
+  </p>
+</form>
+
+<p class="nota">
+  Um formulário envelhecido ou reenviado não sobrepõe alterações nem duplica efeitos:
+  a página é recarregada e nada é gravado duas vezes.
+</p>
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('payments.payment_detail', payment_id=pagamento.id) }}">
+    Voltar ao pagamento
+  </a>
+  <a class="botao secundario" href="{{ url_for('payments.payment_history', payment_id=pagamento.id) }}">
+    Histórico deste pagamento
+  </a>
+</p>
+{% endblock %}

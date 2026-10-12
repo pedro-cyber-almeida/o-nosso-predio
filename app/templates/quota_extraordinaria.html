@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}Quota extraordinária — O Nosso Prédio{% endblock %}
+{% block content %}
+<h1>Quota extraordinária</h1>
+
+<p class="nota">
+  Uma decisão pontual, não uma regra que se repete: um montante total, a forma de o
+  repartir pelas frações abrangidas e um calendário de prestações. Não é gerada pela
+  geração mensal de quotas. Pré-visualiza primeiro: é na pré-visualização que se veem
+  as quotas-parte de cada fração e o valor de cada prestação, e é exatamente isso que
+  é gravado.
+</p>
+
+<form method="post" action="{{ url_for('quotas.extraordinary_quota') }}" class="formulario">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="revisao_regras" value="{{ revisao_regras() }}">
+  <input type="hidden" name="form_token" value="{{ token }}">
+
+  <label for="descricao">Descrição (o que os condóminos veem junto da cobrança)
+    <input id="descricao" name="descricao" autocomplete="off" maxlength="{{ LIMITE_DESCRICAO }}"
+           value="{{ valores.get('descricao', '') }}" placeholder="Reparação da cobertura" required>
+  </label>
+
+  <label for="finalidade">Finalidade (opcional)
+    <textarea id="finalidade" name="finalidade" rows="3" maxlength="{{ LIMITE_FINALIDADE }}"
+              placeholder="O que foi deliberado e porquê">{{ valores.get('finalidade', '') }}</textarea>
+  </label>
+
+  <label for="total">Montante total do prédio (euros)
+    <input id="total" name="total" autocomplete="off" inputmode="decimal"
+           value="{{ valores.get('total', '') }}" placeholder="1.250,00" required>
+  </label>
+
+  <label for="reparticao">Forma de repartição
+    <select id="reparticao" name="reparticao">
+      {% for opcao in REPARTICOES %}
+        <option value="{{ opcao }}"{% if valores.get('reparticao', 'igual') == opcao %} selected{% endif %}>
+          {{ ROTULOS_REPARTICAO[opcao] }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <fieldset>
+    <legend>Frações abrangidas</legend>
+    <p class="nota">
+      Na repartição manual, escreve o valor de cada fração abrangida. A soma tem de ser
+      exatamente o montante total.
+    </p>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col" class="num">Permilagem</th>
+            <th scope="col">Abrangida</th>
+            <th scope="col">Valor manual (euros)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in fracoes %}
+            {% set marcada = valores.get('selecionadas') %}
+            <tr>
+              <th scope="row">{{ f.code }}{% if not f.active %} (desativada){% endif %}</th>
+              <td class="num">{{ format_permilagem(f.permilagem) }}</td>
+              <td>
+                <label class="caixa">
+                  <input type="checkbox" name="fracao_{{ f.id }}"
+                         {% if f.active and (marcada is none or f.id in marcada) %}checked{% endif %}
+                         {% if not f.active %}disabled{% endif %}>
+                  <span class="sr">Fração {{ f.code }}</span>
+                </label>
+              </td>
+              <td>
+                <label class="sr" for="manual_{{ f.id }}">Valor manual para a fração {{ f.code }}</label>
+                <input id="manual_{{ f.id }}" name="manual_{{ f.id }}" size="10" autocomplete="off"
+                       inputmode="decimal" value="{{ valores.get('manuais', {}).get(f.id, '') }}">
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Calendário de prestações</legend>
+    <p class="nota">
+      Uma data preenchida é um pagamento único. Várias datas são prestações, pela ordem
+      indicada. Cada prestação tem de cair num mês diferente. Se deixares as datas vazias,
+      as cobranças não têm vencimento e não são apresentadas como vencidas.
+    </p>
+    <ol class="calendario">
+      {% for numero in range(1, calendario + 1) %}
+        <li>
+          <label for="prestacao_{{ numero }}">Prestação {{ numero }}{% if numero > 1 %} (opcional){% endif %}
+            <input id="prestacao_{{ numero }}" name="prestacao_{{ numero }}" autocomplete="off"
+                   placeholder="15/03/2027" value="{{ valores.get('prestacoes', {}).get(numero, '') }}">
+          </label>
+        </li>
+      {% endfor %}
+    </ol>
+    {% if calendario < MAXIMO_PRESTACOES %}
+      <p class="nota">
+        Para acrescentar uma prestação, preenche a data seguinte e pré-visualiza:
+        a pré-visualização mostra o calendário completo e abre espaço para mais uma.
+      </p>
+    {% endif %}
+  </fieldset>
+
+  <label for="source">Fonte da decisão (opcional)
+    <input id="source" name="source" autocomplete="off"
+           value="{{ valores.get('source', '') }}" placeholder="Ata n.º 23, de 12/11/2026">
+  </label>
+
+  <p class="nota">
+    Escreve em euros, com vírgula para os cêntimos: 1.250,00. O ponto separa milhares.
+    Os cêntimos que a divisão não reparte por igual vão para as frações por ordem de
+    código, e nas prestações a diferença fica na última.
+  </p>
+
+  <label>
+    <input type="checkbox" id="confirmar_extraordinaria" name="confirmar_extraordinaria">
+    Confirmo que este montante, esta repartição e estas datas correspondem a uma decisão registada.
+  </label>
+
+  <p class="acoes">
+    <button type="submit" name="previsualizar" value="on" class="secundario">Pré-visualizar repartição</button>
+    {% if plano %}
+      <button type="submit" name="confirmar_emissao" value="on">Emitir cobranças</button>
+    {% endif %}
+  </p>
+</form>
+
+{% if plano %}
+  <section aria-label="Pré-visualização da quota extraordinária">
+    <h2>Pré-visualização</h2>
+    <p class="nota">
+      {{ plano.total_texto }} por {{ plano.fracoes|length }} fração(ões), em
+      {{ plano.prestacoes|length }} prestação(ões): {{ plano.cobrancas }} cobranças emitidas.
+      A soma das quotas-parte é exatamente {{ plano.total_texto }}.
+      Emitido não é recebido.
+    </p>
+    <div class="tabela-inv">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fração</th>
+            <th scope="col" class="num">Permilagem</th>
+            <th scope="col" class="num">Quota-parte</th>
+            {% for prestacao in plano.prestacoes %}
+              <th scope="col" class="num">Prestação {{ prestacao.numero }}
+                <span class="nota">{{ prestacao.due_texto }}</span></th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for linha in plano.fracoes %}
+            <tr>
+              <th scope="row">{{ linha.code }}</th>
+              <td class="num">{{ linha.permilagem_texto }}</td>
+              <td class="num">{{ linha.amount_texto }}</td>
+              {% for prestacao in linha.prestacoes %}
+                <td class="num">{{ prestacao.amount_texto }}</td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total por prestação</th>
+            <td class="num"></td>
+            <td class="num">{{ plano.total_texto }}</td>
+            {% for prestacao in plano.prestacoes %}
+              <td class="num">{{ prestacao.amount_texto }}</td>
+            {% endfor %}
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="nota">
+      Confirma acima para emitir. Enquanto não confirma, nada foi gravado.
+    </p>
+  </section>
+{% endif %}
+
+<p class="acoes">
+  <a class="botao secundario" href="{{ url_for('quotas.extraordinary_quotas') }}">Quotas extraordinárias registadas</a>
+  <a class="botao secundario" href="{{ url_for('quotas.quotas') }}">Regras de quotas</a>
+</p>
+{% endblock %}
